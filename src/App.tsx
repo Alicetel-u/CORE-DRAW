@@ -17,7 +17,11 @@ export default function App() {
     ? participants.find((participant) => participant.id === result.winnerIds[0])
     : undefined
 
-  useEffect(() => () => timelineRef.current?.kill(), [])
+  useEffect(() => {
+    return () => {
+      timelineRef.current?.kill()
+    }
+  }, [])
 
   function runDemoDraw() {
     if (phase !== 'idle' && phase !== 'complete') return
