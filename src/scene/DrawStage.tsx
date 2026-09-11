@@ -18,13 +18,12 @@ function CameraDirector({ cinematic:s }: {cinematic:CinematicState}) {
     const portrait=size.width/size.height<.85
     const drift=!s.running&&!s.winner&&!s.reduced?Math.sin(clock.elapsedTime*.15)*.055:0
     const shake=s.reduced?0:s.impact
-    // Portrait has a longer lens distance and different tracking amplitude, not a CSS-scaled shot.
     const zOffset=portrait?(s.winner?2.7:3.8):0
     cam.position.set(s.cx*(portrait?.65:1)+Math.sin(s.time*151)*shake*.065+drift,s.cy+Math.sin(s.time*113)*shake*.045,s.cz+zOffset)
     target.set(s.tx,s.ty,s.tz);cam.up.set(Math.sin(s.roll),Math.cos(s.roll),0);cam.lookAt(target)
     const fov=s.fov+(portrait?6:0)
     if(cam.fov!==fov){cam.fov=fov;cam.updateProjectionMatrix()}
-    gl.toneMappingExposure=(1-s.silence*.92)*(1+s.impact*.45)
+    gl.toneMappingExposure=(1.08-s.silence*.92)*(1+s.impact*.45)
   })
   return null
 }
@@ -32,22 +31,27 @@ function PostFX({cinematic:s}:{cinematic:CinematicState}) {
   const bloom=useRef<BloomEffect>(null)
   const offset=useMemo(()=>new THREE.Vector2(),[])
   useFrame(()=>{
-    if(bloom.current)bloom.current.intensity=.42+s.impact*2.3+s.awaken*.16
+    if(bloom.current)bloom.current.intensity=.38+s.impact*2.3+s.awaken*.16
     offset.set(s.impact*.005,s.impact*.0015)
   })
-  return <EffectComposer multisampling={0}><Bloom ref={bloom} intensity={.42} luminanceThreshold={.85} mipmapBlur/><ChromaticAberration offset={offset} radialModulation modulationOffset={.15}/><Vignette offset={.15} darkness={.62}/></EffectComposer>
+  return <EffectComposer multisampling={0}><Bloom ref={bloom} intensity={.38} luminanceThreshold={.88} mipmapBlur/><ChromaticAberration offset={offset} radialModulation modulationOffset={.15}/><Vignette offset={.15} darkness={.55}/></EffectComposer>
 }
 function Scene({participants,winnerIds,cinematic:s,quality}:{participants:Participant[];winnerIds:string[];cinematic:CinematicState;quality:QualityTier}){
   const size=useThree(v=>v.size), portrait=size.width/size.height<.85
   return <>
     <CameraDirector cinematic={s}/>
-    <ambientLight intensity={.15}/><directionalLight position={[3,5,7]} intensity={2.4} color="#b4cbd7"/>
-    <pointLight position={[-3,1,4]} intensity={14} color="#759fb4"/><pointLight position={[2,-2,-1]} intensity={10} color="#cda873"/>
-    {quality==='ultra'&&<pointLight position={[0,5,1]} intensity={15} color="#dee9f3"/>}
-    <Environment resolution={64} frames={1} environmentIntensity={.65}>
-      <Lightformer position={[0,4,3]} scale={[5,2,1]} intensity={3} color="#cbd9e4"/>
-      <Lightformer position={[-4,0,2]} rotation={[0,Math.PI/2,0]} scale={[2,6,1]} intensity={2} color="#7994ae"/>
-      <Lightformer position={[4,-2,1]} rotation={[0,-Math.PI/2,0]} scale={[2,3,1]} intensity={2} color="#d6b88c"/>
+    <ambientLight intensity={.28}/>
+    <hemisphereLight args={['#b9d8e5','#111820',.7]}/>
+    <directionalLight position={[3,5,7]} intensity={3.4} color="#d6e8ef"/>
+    <directionalLight position={[-5,2,5]} intensity={2.1} color="#86abc1"/>
+    <pointLight position={[-3,1,4]} intensity={18} color="#86bad0"/>
+    <pointLight position={[2,-2,-1]} intensity={12} color="#d2b27d"/>
+    <pointLight position={[0,0,7]} intensity={10} color="#dbeaf0" distance={24} decay={2}/>
+    {quality==='ultra'&&<pointLight position={[0,5,1]} intensity={16} color="#eef7fb"/>}
+    <Environment resolution={64} frames={1} environmentIntensity={.9}>
+      <Lightformer position={[0,4,3]} scale={[6,2.4,1]} intensity={4} color="#dceaf0"/>
+      <Lightformer position={[-4,0,2]} rotation={[0,Math.PI/2,0]} scale={[2.5,7,1]} intensity={3} color="#88a8ba"/>
+      <Lightformer position={[4,-2,1]} rotation={[0,-Math.PI/2,0]} scale={[2.5,4,1]} intensity={2.5} color="#d6b88c"/>
     </Environment>
     <CoreReactor cinematic={s}/>
     {participants.map((p,i)=><ParticipantCard key={p.id} participant={p} index={i} total={participants.length} isWinner={winnerIds.includes(p.id)} cinematic={s} portrait={portrait}/>)}
