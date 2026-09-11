@@ -13,14 +13,14 @@ export function plate(width: number, height: number, cut: number, depth: number)
   shape.moveTo(-w + cut, -h); shape.lineTo(w - cut, -h); shape.lineTo(w, -h + cut)
   shape.lineTo(w, h - cut); shape.lineTo(w - cut, h); shape.lineTo(-w + cut, h)
   shape.lineTo(-w, h - cut); shape.lineTo(-w, -h + cut); shape.closePath()
-  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: .025, bevelThickness: .025 })
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .035, bevelThickness: .03 })
 }
 
 const vertex = `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`
 export function hologram(color: THREE.Color, seed: number) {
   return new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uAwaken: { value: 0 }, uColor: { value: color }, uSeed: { value: seed % 31 } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     vertexShader: vertex,
     fragmentShader: `
       varying vec2 vUv; uniform float uTime,uAwaken,uSeed; uniform vec3 uColor;
@@ -30,9 +30,11 @@ export function hologram(color: THREE.Color, seed: number) {
         float scan=pow(max(0.,1.-abs(fract(vUv.y-uTime*.13)-.5)*2.),30.);
         float edge=pow(max(abs(p.x)*2.,abs(p.y)*2.),14.);
         float hex=pow(abs(sin(p.x*27.+sin(p.y*18.+uSeed))),18.);
-        float alpha=(grid*.07+hex*.055+scan*(.2+uAwaken*.6)+edge*.16);
-        vec3 c=mix(uColor,vec3(1.,.69,.27),uAwaken*.65);
-        gl_FragColor=vec4(c*(1.+uAwaken),alpha);
+        float alpha=(grid*.04+hex*.035+scan*(.09+uAwaken*.34)+edge*.08);
+        vec3 base=uColor*.42;
+        vec3 gold=vec3(.84,.58,.25);
+        vec3 c=mix(base,gold,uAwaken*.72);
+        gl_FragColor=vec4(c,alpha*(.72+uAwaken*.28));
       }`,
   })
 }
