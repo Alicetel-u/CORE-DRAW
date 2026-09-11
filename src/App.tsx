@@ -7,7 +7,7 @@ import type { DrawPhase, DrawResult, Participant, QualityTier } from './core/typ
 import { demoParticipants } from './data/demoParticipants'
 import { DrawStage } from './scene/DrawStage'
 
-const APP_VERSION='v0.3.1'
+const APP_VERSION='v0.3.2'
 type RecordEntry={id:string;name:string;number:number;time:string}
 const labels:Record<DrawPhase,string>={idle:'運命が動き出す、その瞬間へ。',charging:'コア、起動。',mixing:'すべての可能性が、交差する。',selection:'選ばれるのは、ただ一人。',impact:'',reveal:'その瞬間は、あなたのもの。',complete:'その瞬間は、あなたのもの。'}
 function read<T>(key:string,fallback:T):T{try{return JSON.parse(localStorage.getItem(key)??'null')??fallback}catch{return fallback}}
