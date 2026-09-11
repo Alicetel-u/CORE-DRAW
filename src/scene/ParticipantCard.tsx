@@ -16,12 +16,12 @@ export function ParticipantCard({ participant, index, total, isWinner, cinematic
   const frame = useRef<THREE.MeshPhysicalMaterial>(null)
   const design = useMemo(() => identity(participant.id), [participant.id])
   const resources = useMemo(() => {
-    const color = new THREE.Color().setHSL(design.hue, .42, .58)
+    const color = new THREE.Color().setHSL(design.hue, .46, .64)
     return {
       color,
-      steel: new THREE.Color('#24292f'),
-      goldMetal: new THREE.Color('#8f7449'),
-      goldGlow: new THREE.Color('#d9ad65'),
+      steel: new THREE.Color('#46515a'),
+      goldMetal: new THREE.Color('#9c8052'),
+      goldGlow: new THREE.Color('#e0b56e'),
       body: plate(2.14,3.22,.24,.22),
       back: plate(2.02,3.08,.22,.1),
       glass: plate(1.78,2.82,.2,.06),
@@ -49,9 +49,8 @@ export function ParticipantCard({ participant, index, total, isWinner, cinematic
       const r=(portrait?3:4.5)+(index%3)*.32
       const collapse=1-s.absorption
       node.position.set(Math.cos(a)*r*collapse,Math.sin(a)*(portrait?3.6:2.35)*collapse,Math.sin(a*.9+index)*1.4*collapse-.8)
-      // Rotate enough to expose the edge and rear shell. The cards should read as objects, not billboards.
-      node.rotation.set(.16*Math.sin(a*.7), Math.sin(a)*.95+Math.cos(a*.35)*.18, Math.cos(a)*.12+s.absorption*1.2)
-      node.scale.setScalar((.24+(index%3)*.015)*Math.max(.04,collapse)*s.entries)
+      node.rotation.set(.14*Math.sin(a*.7), Math.sin(a)*.82+Math.cos(a*.35)*.14, Math.cos(a)*.1+s.absorption*1.2)
+      node.scale.setScalar((.255+(index%3)*.016)*Math.max(.04,collapse)*s.entries)
     }
     const awakening=hero?s.awaken:0
     resources.shader.uniforms.uTime.value=s.running?s.time:clock.elapsedTime*.22
@@ -59,8 +58,8 @@ export function ParticipantCard({ participant, index, total, isWinner, cinematic
     if(frame.current) {
       frame.current.color.copy(resources.steel).lerp(resources.goldMetal,awakening)
       frame.current.emissive.copy(resources.color).lerp(resources.goldGlow,awakening)
-      frame.current.emissiveIntensity=.018+awakening*.1
-      frame.current.roughness=.28-awakening*.045
+      frame.current.emissiveIntensity=.035+awakening*.11
+      frame.current.roughness=.24-awakening*.035
     }
     if(label.current)label.current.opacity=hero?s.readable:0
     if(armor.current)armor.current.children.forEach((part,i)=>{
@@ -72,45 +71,42 @@ export function ParticipantCard({ participant, index, total, isWinner, cinematic
     if(glyph.current){glyph.current.position.z=.31+awakening*.14;glyph.current.rotation.z=design.variant*.25+awakening*Math.PI*.5}
   })
   return <group ref={root} name={`entry-${participant.id}`}>
-    {/* Thick machined outer shell. Most of the card is visible by reflected light, not emission. */}
     <mesh geometry={resources.body} position={[0,0,-.11]}>
-      <meshPhysicalMaterial ref={frame} color="#24292f" metalness={.94} roughness={.28} clearcoat={.28} clearcoatRoughness={.2} emissive={resources.color} emissiveIntensity={.018}/>
+      <meshPhysicalMaterial ref={frame} color="#46515a" metalness={.9} roughness={.24} clearcoat={.4} clearcoatRoughness={.16} envMapIntensity={1.45} emissive={resources.color} emissiveIntensity={.035}/>
     </mesh>
     <mesh geometry={resources.back} position={[0,0,-.16]} rotation={[0,Math.PI,0]}>
-      <meshPhysicalMaterial color="#11161b" metalness={.88} roughness={.34} clearcoat={.18}/>
+      <meshPhysicalMaterial color="#263039" metalness={.82} roughness={.3} clearcoat={.22} envMapIntensity={1.2}/>
     </mesh>
 
-    {/* Raised rails make the silhouette and side profile readable while the card spins. */}
-    <mesh position={[-1.02,0,.03]}><boxGeometry args={[.11,2.54,.26]}/><meshPhysicalMaterial color="#45494d" metalness={.96} roughness={.23}/></mesh>
-    <mesh position={[1.02,0,.03]}><boxGeometry args={[.11,2.54,.26]}/><meshPhysicalMaterial color="#45494d" metalness={.96} roughness={.23}/></mesh>
-    <mesh position={[0,1.48,.03]}><boxGeometry args={[1.58,.1,.26]}/><meshPhysicalMaterial color="#383d42" metalness={.94} roughness={.25}/></mesh>
-    <mesh position={[0,-1.48,.03]}><boxGeometry args={[1.58,.1,.26]}/><meshPhysicalMaterial color="#383d42" metalness={.94} roughness={.25}/></mesh>
+    <mesh position={[-1.02,0,.03]}><boxGeometry args={[.12,2.54,.27]}/><meshPhysicalMaterial color="#77848d" metalness={.92} roughness={.2} envMapIntensity={1.5}/></mesh>
+    <mesh position={[1.02,0,.03]}><boxGeometry args={[.12,2.54,.27]}/><meshPhysicalMaterial color="#77848d" metalness={.92} roughness={.2} envMapIntensity={1.5}/></mesh>
+    <mesh position={[0,1.48,.03]}><boxGeometry args={[1.58,.11,.27]}/><meshPhysicalMaterial color="#66727b" metalness={.9} roughness={.22} envMapIntensity={1.4}/></mesh>
+    <mesh position={[0,-1.48,.03]}><boxGeometry args={[1.58,.11,.27]}/><meshPhysicalMaterial color="#66727b" metalness={.9} roughness={.22} envMapIntensity={1.4}/></mesh>
 
-    {/* Opaque black glass sits inside the shell. It reflects the environment instead of reading as a glowing screen. */}
     <mesh geometry={resources.glass} position={[0,0,.12]}>
-      <meshPhysicalMaterial color="#05080b" metalness={.2} roughness={.12} clearcoat={1} clearcoatRoughness={.055} envMapIntensity={1.35}/>
+      <meshPhysicalMaterial color="#111c24" metalness={.12} roughness={.1} clearcoat={1} clearcoatRoughness={.04} envMapIntensity={1.8}/>
     </mesh>
     <mesh position={[0,0,.205]} material={resources.shader}><planeGeometry args={[1.7,2.72]}/></mesh>
 
     <group ref={glyph} position={[0,.48,.31]}>
-      <mesh><ringGeometry args={[.37,.395,design.sides]}/><meshStandardMaterial color="#c2ccd1" emissive={resources.color} emissiveIntensity={.16} metalness={.82} roughness={.25}/></mesh>
-      <mesh rotation={[0,0,Math.PI/design.sides]}><ringGeometry args={[.25,.27,design.sides]}/><meshStandardMaterial color="#616b72" metalness={.9} roughness={.22}/></mesh>
-      <mesh rotation={[0,0,Math.PI/4]}><boxGeometry args={[.115,.115,.05]}/><meshStandardMaterial color="#d9d5ca" metalness={.75} roughness={.2}/></mesh>
+      <mesh><ringGeometry args={[.37,.4,design.sides]}/><meshStandardMaterial color="#e1e9ec" emissive={resources.color} emissiveIntensity={.28} metalness={.72} roughness={.22}/></mesh>
+      <mesh rotation={[0,0,Math.PI/design.sides]}><ringGeometry args={[.25,.272,design.sides]}/><meshStandardMaterial color="#8a99a1" emissive={resources.color} emissiveIntensity={.12} metalness={.86} roughness={.2}/></mesh>
+      <mesh rotation={[0,0,Math.PI/4]}><boxGeometry args={[.115,.115,.05]}/><meshStandardMaterial color="#f0ece1" metalness={.62} roughness={.18}/></mesh>
     </group>
 
     <group ref={armor}>{[0,1,2,3].map(i=><group key={i}>
-      <mesh geometry={resources.corner}><meshPhysicalMaterial color="#74787d" metalness={.96} roughness={.22} clearcoat={.18}/></mesh>
-      <mesh position={[0,0,.16]}><boxGeometry args={[.04,.4,.04]}/><meshBasicMaterial color={resources.color} transparent opacity={.55} toneMapped={false}/></mesh>
+      <mesh geometry={resources.corner}><meshPhysicalMaterial color="#929ca3" metalness={.93} roughness={.2} clearcoat={.22} envMapIntensity={1.4}/></mesh>
+      <mesh position={[0,0,.16]}><boxGeometry args={[.045,.4,.045]}/><meshBasicMaterial color={resources.color} transparent opacity={.72} toneMapped={false}/></mesh>
     </group>)}</group>
 
     <mesh position={[0,-.58,.315]}><planeGeometry args={[1.7,.85]}/><meshBasicMaterial ref={label} map={resources.texture} transparent opacity={0} depthWrite={false} toneMapped={false}/></mesh>
-    <mesh position={[0,1.12,.315]}><boxGeometry args={[.7,.018,.025]}/><meshStandardMaterial color="#9aa3a8" emissive={resources.color} emissiveIntensity={.08} metalness={.8}/></mesh>
-    <mesh position={[0,-1.23,.315]}><boxGeometry args={[.7,.018,.025]}/><meshStandardMaterial color="#9aa3a8" emissive={resources.color} emissiveIntensity={.08} metalness={.8}/></mesh>
+    <mesh position={[0,1.12,.315]}><boxGeometry args={[.78,.022,.03]}/><meshStandardMaterial color="#d2dce0" emissive={resources.color} emissiveIntensity={.18} metalness={.7}/></mesh>
+    <mesh position={[0,-1.23,.315]}><boxGeometry args={[.78,.022,.03]}/><meshStandardMaterial color="#d2dce0" emissive={resources.color} emissiveIntensity={.18} metalness={.7}/></mesh>
 
     <group position={[0,0,-.255]} rotation={[0,Math.PI,0]}>
-      <mesh><ringGeometry args={[.58,.615,6]}/><meshStandardMaterial color="#626b70" metalness={.92} roughness={.24}/></mesh>
-      <mesh rotation={[0,0,Math.PI/6]}><ringGeometry args={[.35,.38,3]}/><meshStandardMaterial color="#8b9295" metalness={.9} roughness={.2}/></mesh>
-      {[0,1,2].map(i=><mesh key={i} position={[0,-.95+i*.09,0]}><boxGeometry args={[.5-i*.12,.014,.025]}/><meshStandardMaterial color="#6c7377" metalness={.85} roughness={.28}/></mesh>)}
+      <mesh><ringGeometry args={[.58,.615,6]}/><meshStandardMaterial color="#88969d" metalness={.88} roughness={.22}/></mesh>
+      <mesh rotation={[0,0,Math.PI/6]}><ringGeometry args={[.35,.38,3]}/><meshStandardMaterial color="#b1babf" metalness={.84} roughness={.18}/></mesh>
+      {[0,1,2].map(i=><mesh key={i} position={[0,-.95+i*.09,0]}><boxGeometry args={[.5-i*.12,.014,.025]}/><meshStandardMaterial color="#818b90" metalness={.82} roughness={.24}/></mesh>)}
     </group>
 
     <group ref={halo} position={[0,.15,-.34]} visible={false}>
