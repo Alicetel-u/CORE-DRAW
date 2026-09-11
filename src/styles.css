@@ -8,3 +8,18 @@
 /* Keep the launch controls visible at desktop viewport heights. */
 @media(min-width:701px){.app-shell{height:100dvh;min-height:650px}.workspace{height:auto;min-height:0}.topbar,footer{flex-shrink:0}.sidebar{min-height:0}.stage-intro{top:11%}.stage-bottom{bottom:24px}}
 .phase-reveal .phase-readout,.phase-complete .phase-readout{opacity:0}
+/* The scene, including the readable winner, now carries the reveal. */
+.scene{inset:0;opacity:1!important;filter:none!important}
+.scene-vignette{background:linear-gradient(#080d1310,transparent 22%,transparent 78%,#080d1399 100%)}
+.phase-charging .stage-intro,.phase-mixing .stage-intro,.phase-selection .stage-intro,.phase-impact .stage-intro{opacity:0;transition:opacity .5s}
+.phase-reveal .stage-intro,.phase-complete .stage-intro{top:9%;opacity:.85}
+.phase-reveal .stage-intro h1,.phase-complete .stage-intro h1{font-size:25px;letter-spacing:3px}
+.phase-reveal .stage-intro p,.phase-complete .stage-intro p,.phase-reveal .stage-intro .eyebrow,.phase-complete .stage-intro .eyebrow{display:none}
+.phase-charging .orbit-label,.phase-mixing .orbit-label,.phase-selection .orbit-label,.phase-impact .orbit-label{opacity:0}
+.phase-readout{top:18%;font-size:8px;opacity:.6}
+.phase-idle .phase-readout{top:74%}
+.winner-caption-overlay{position:absolute;bottom:22%;left:12%;right:12%;text-align:center;pointer-events:none;animation:reveal .8s both}
+.winner-caption-overlay span{font:8px monospace;letter-spacing:3px;color:#bfaa83}
+.winner-caption-overlay strong{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.fallback-core strong{font-size:30px;max-width:80%;overflow-wrap:anywhere;color:#f6d8a3}
+@media(max-width:700px){.scene{inset:0}.phase-reveal .stage-intro h1,.phase-complete .stage-intro h1{font-size:21px}.winner-caption-overlay{bottom:24%}}

@@ -1,45 +1,69 @@
-import { Stars } from '@react-three/drei'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
+import { Environment, Lightformer } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing'
+import type { BloomEffect } from 'postprocessing'
 import { Component, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
-import type { DrawPhase, Participant, QualityTier } from '../core/types'
+import type { Participant, QualityTier } from '../core/types'
+import type { CinematicState } from '../core/cinematic'
 import { CoreReactor } from './CoreReactor'
 import { ParticipantCard } from './ParticipantCard'
+import { CinematicVFX } from './CinematicVFX'
 
-function Motion({ phase, reduced }: { phase: DrawPhase; reduced: boolean }) {
-  const target = useMemo(()=>new THREE.Vector3(),[])
-  useFrame(({camera,clock},dt)=>{
-    const z = phase==='selection'?10:phase==='mixing'?12:phase==='impact'?15:14
-    target.set(reduced?0:Math.sin(clock.elapsedTime*.17)*.3, .3, z)
-    camera.position.lerp(target,1-Math.exp(-dt*2))
-    camera.lookAt(0,0,0)
+function CameraDirector({ cinematic:s }: {cinematic:CinematicState}) {
+  const {size}=useThree()
+  const target=useMemo(()=>new THREE.Vector3(),[])
+  useFrame(({camera,clock,gl})=>{
+    const cam=camera as THREE.PerspectiveCamera
+    const portrait=size.width/size.height<.85
+    const drift=!s.running&&!s.winner&&!s.reduced?Math.sin(clock.elapsedTime*.15)*.055:0
+    const shake=s.reduced?0:s.impact
+    // Portrait has a longer lens distance and different tracking amplitude, not a CSS-scaled shot.
+    const zOffset=portrait?(s.winner?2.7:3.8):0
+    cam.position.set(s.cx*(portrait?.65:1)+Math.sin(s.time*151)*shake*.065+drift,s.cy+Math.sin(s.time*113)*shake*.045,s.cz+zOffset)
+    target.set(s.tx,s.ty,s.tz);cam.up.set(Math.sin(s.roll),Math.cos(s.roll),0);cam.lookAt(target)
+    const fov=s.fov+(portrait?6:0)
+    if(cam.fov!==fov){cam.fov=fov;cam.updateProjectionMatrix()}
+    gl.toneMappingExposure=(1-s.silence*.92)*(1+s.impact*.45)
   })
   return null
 }
-function Dust({ phase, lite }: { phase: DrawPhase; lite: boolean }) {
-  const ref=useRef<THREE.Points>(null)
-  const positions=useMemo(()=>{
-    const a=new Float32Array((lite?180:650)*3)
-    for(let i=0;i<a.length;i+=3){const n=i/3; const angle=n*2.399963;const r=3+(n%97)/97*8;a[i]=Math.cos(angle)*r;a[i+1]=Math.sin(angle)*r*.65;a[i+2]=-2-(n%31)/3}
-    return a
-  },[lite])
-  useFrame((_,dt)=>{if(ref.current) ref.current.rotation.z+=dt*(phase==='mixing'?.2:.012)})
-  return <points ref={ref}><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions,3]}/></bufferGeometry><pointsMaterial size={.022} color={['reveal','complete'].includes(phase)?'#ffd99d':'#7eb8ce'} transparent opacity={.65} sizeAttenuation /></points>
+function PostFX({cinematic:s}:{cinematic:CinematicState}) {
+  const bloom=useRef<BloomEffect>(null)
+  const offset=useMemo(()=>new THREE.Vector2(),[])
+  useFrame(()=>{
+    if(bloom.current)bloom.current.intensity=.42+s.impact*2.3+s.awaken*.16
+    offset.set(s.impact*.005,s.impact*.0015)
+  })
+  return <EffectComposer multisampling={0}><Bloom ref={bloom} intensity={.42} luminanceThreshold={.85} mipmapBlur/><ChromaticAberration offset={offset} radialModulation modulationOffset={.15}/><Vignette offset={.15} darkness={.62}/></EffectComposer>
 }
-class StageBoundary extends Component<{children:ReactNode},{failed:boolean}> {
+function Scene({participants,winnerIds,cinematic:s,quality}:{participants:Participant[];winnerIds:string[];cinematic:CinematicState;quality:QualityTier}){
+  const size=useThree(v=>v.size), portrait=size.width/size.height<.85
+  return <>
+    <CameraDirector cinematic={s}/>
+    <ambientLight intensity={.15}/><directionalLight position={[3,5,7]} intensity={2.4} color="#b4cbd7"/>
+    <pointLight position={[-3,1,4]} intensity={14} color="#759fb4"/><pointLight position={[2,-2,-1]} intensity={10} color="#cda873"/>
+    {quality==='ultra'&&<pointLight position={[0,5,1]} intensity={15} color="#dee9f3"/>}
+    <Environment resolution={64} frames={1} environmentIntensity={.65}>
+      <Lightformer position={[0,4,3]} scale={[5,2,1]} intensity={3} color="#cbd9e4"/>
+      <Lightformer position={[-4,0,2]} rotation={[0,Math.PI/2,0]} scale={[2,6,1]} intensity={2} color="#7994ae"/>
+      <Lightformer position={[4,-2,1]} rotation={[0,-Math.PI/2,0]} scale={[2,3,1]} intensity={2} color="#d6b88c"/>
+    </Environment>
+    <CoreReactor cinematic={s}/>
+    {participants.map((p,i)=><ParticipantCard key={p.id} participant={p} index={i} total={participants.length} isWinner={winnerIds.includes(p.id)} cinematic={s} portrait={portrait}/>)}
+    <CinematicVFX cinematic={s} quality={quality}/>
+    {quality!=='lite'&&<PostFX cinematic={s}/>}
+  </>
+}
+class StageBoundary extends Component<{children:ReactNode;winner?:Participant},{failed:boolean}> {
   state={failed:false}
   static getDerivedStateFromError(){return {failed:true}}
-  render(){return this.state.failed?<div className="fallback-core"><span>◇</span><small>CORE ONLINE · 2D MODE</small></div>:this.props.children}
+  render(){return this.state.failed?<Fallback winner={this.props.winner}/>:this.props.children}
 }
-export function DrawStage({ participants, phase, quality='high', reduced=false }: { participants: Participant[]; phase: DrawPhase; winnerIds: string[]; quality?: QualityTier; reduced?: boolean }) {
-  return <StageBoundary><Canvas dpr={quality==='ultra'?[1,2]:quality==='high'?[1,1.5]:[.75,1]} camera={{position:[0,.3,14],fov:43}} gl={{antialias:quality!=='lite',alpha:true}} fallback={<div className="fallback-core"><span>◇</span><small>2D MODE</small></div>}>
-    <ambientLight intensity={.7}/><pointLight position={[3,4,5]} intensity={25} color="#b7eaff"/><pointLight position={[-4,-2,1]} intensity={15} color="#527b9e"/>
-    <Motion phase={phase} reduced={reduced}/>
-    <Stars radius={45} depth={30} count={quality==='lite'?350:1000} factor={1.4} fade speed={reduced?0:.15}/>
-    <Dust phase={reduced?'idle':phase} lite={quality==='lite'}/>
-    <CoreReactor phase={phase} reduced={reduced}/>
-    {participants.map((p,i)=><ParticipantCard key={p.id} participant={p} index={i} total={participants.length} phase={reduced&&phase==='mixing'?'charging':phase} isWinner={false}/>)}
-    {quality!=='lite'&&<EffectComposer multisampling={0}><Bloom intensity={phase==='impact'?2: .85} luminanceThreshold={.65} mipmapBlur/><Vignette offset={.15} darkness={.65}/></EffectComposer>}
+function Fallback({winner}:{winner?:Participant}){return <div className="fallback-core"><span>◇</span><small>2D MODE</small>{winner&&<strong>{winner.name}</strong>}</div>}
+export function DrawStage({participants,winnerIds,cinematic,quality='high',revealed}:{participants:Participant[];winnerIds:string[];cinematic:CinematicState;quality?:QualityTier;revealed:boolean}) {
+  const winner=revealed?participants.find(p=>p.id===winnerIds[0]):undefined
+  return <StageBoundary winner={winner}><Canvas dpr={quality==='ultra'?[1,2]:quality==='high'?[1,1.5]:[.75,1]} camera={{position:[0,.65,15.5],fov:43,near:.1,far:100}} gl={{antialias:quality==='ultra',alpha:true,powerPreference:'high-performance'}} fallback={<Fallback winner={winner}/>}>
+    <Scene participants={participants} winnerIds={winnerIds} cinematic={cinematic} quality={quality}/>
   </Canvas></StageBoundary>
 }

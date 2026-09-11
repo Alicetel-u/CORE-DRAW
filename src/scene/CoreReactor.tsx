@@ -1,40 +1,69 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import type { DrawPhase } from '../core/types'
+import type { CinematicState } from '../core/cinematic'
 
-export function CoreReactor({ phase, reduced = false }: { phase: DrawPhase; reduced?: boolean }) {
-  const root = useRef<THREE.Group>(null)
-  const crystal = useRef<THREE.Group>(null)
-  const rings = useRef<THREE.Group>(null)
-  const active = ['charging', 'mixing', 'selection'].includes(phase)
-  const gold = ['impact', 'reveal', 'complete'].includes(phase)
-  const color = gold ? '#ffd28a' : '#85e8ff'
-  const shards = useMemo(() => Array.from({ length: 12 }, (_, i) => i * Math.PI / 6), [])
-  useFrame(({ clock }, dt) => {
-    if (!root.current || !crystal.current || !rings.current) return
-    const t = clock.elapsedTime
-    const speed = reduced ? .1 : phase === 'mixing' ? 2.8 : active ? 1 : .16
-    crystal.current.rotation.y += dt * speed
-    crystal.current.rotation.z = Math.sin(t * .4) * .12
-    rings.current.rotation.z += dt * speed * .3
-    rings.current.rotation.y = Math.sin(t * .2) * .18
-    const s = phase === 'selection' ? .55 : gold ? .82 : active ? 1.12 : 1
-    root.current.scale.lerp(new THREE.Vector3(s,s,s), 1 - Math.exp(-dt * 3))
+function sector(inner: number, outer: number, angle: number, depth: number) {
+  const s=new THREE.Shape(), start=-angle/2, end=angle/2
+  s.moveTo(Math.cos(start)*outer,Math.sin(start)*outer)
+  s.absarc(0,0,outer,start,end,false)
+  s.lineTo(Math.cos(end)*inner,Math.sin(end)*inner)
+  s.absarc(0,0,inner,end,start,true);s.closePath()
+  return new THREE.ExtrudeGeometry(s,{depth,steps:1,bevelEnabled:true,bevelSegments:2,bevelSize:.045,bevelThickness:.035,curveSegments:10})
+}
+export function CoreReactor({ cinematic:s }: { cinematic:CinematicState }) {
+  const shell=useRef<THREE.Group>(null), iris=useRef<THREE.Group>(null), rotor=useRef<THREE.Group>(null)
+  const glow=useRef<THREE.MeshBasicMaterial>(null), energy=useRef<THREE.Mesh>(null)
+  const core=useRef<THREE.Group>(null)
+  const geometry=useMemo(()=>({outer:sector(1.55,2.3,.92,.36),rim:sector(1.35,1.5,.88,.12),shutter:sector(.02,1.29,1.03,.06)}),[])
+  const shader=useMemo(()=>new THREE.ShaderMaterial({
+    uniforms:{uTime:{value:0},uPower:{value:.1},uGold:{value:0}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:`varying vec3 vP; varying vec3 vN; void main(){vP=position;vN=normal;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`varying vec3 vP; varying vec3 vN;uniform float uTime,uPower,uGold;void main(){
+      float bands=sin(vP.y*19.+sin(vP.x*11.+uTime*2.)*2.-uTime*3.);
+      float veins=pow(abs(bands),12.);float rim=pow(1.-abs(vN.z),2.);
+      vec3 c=mix(vec3(.18,.6,.82),vec3(1.,.58,.16),uGold);
+      gl_FragColor=vec4(c*(.4+veins*2.+rim)*uPower,(.25+veins*.5+rim*.2)*min(uPower,1.));}`,
+  }),[])
+  useEffect(()=>()=>{Object.values(geometry).forEach(g=>g.dispose());shader.dispose()},[geometry,shader])
+  useFrame(({clock})=>{
+    const idle=s.running||s.reduced||s.winner>0?0:clock.elapsedTime*.025
+    if(core.current){core.current.rotation.set(.08,-.15,0);core.current.scale.setScalar(s.winner? .9:1)}
+    if(shell.current)shell.current.children.forEach((p,i)=>{
+      const a=i*Math.PI/3
+      p.position.set(Math.cos(a)*s.shell*.65,Math.sin(a)*s.shell*.65,-s.shell*.55)
+      p.rotation.set(0,s.shell*.25,a+s.shell*.08)
+    })
+    if(iris.current)iris.current.children.forEach((p,i)=>{
+      const a=i*Math.PI/3
+      p.position.set(Math.cos(a)*s.shutter*.95,Math.sin(a)*s.shutter*.95,.43-s.shutter*.25)
+      p.rotation.set(0,s.shutter*.75,a+s.shutter*.38)
+    })
+    if(rotor.current)rotor.current.rotation.z=-s.spin*.65-idle
+    if(glow.current){glow.current.color.set(s.winner?'#e9bc72':'#91c6d6');glow.current.opacity=.12+Math.min(1,s.power)*.6}
+    if(energy.current){energy.current.rotation.y=s.spin*.18+idle;energy.current.scale.setScalar(.85+s.power*.04)}
+    shader.uniforms.uTime.value=s.running?s.time:clock.elapsedTime*.25
+    shader.uniforms.uPower.value=s.power*(1-s.silence)
+    shader.uniforms.uGold.value=s.winner
   })
-  return <group ref={root}>
-    <group ref={crystal} rotation={[.15,0,.12]}>
-      <mesh><octahedronGeometry args={[1.18,0]} /><meshPhysicalMaterial color="#0a2637" emissive={color} emissiveIntensity={active ? .6 : .12} metalness={.85} roughness={.2} flatShading /></mesh>
-      <mesh scale={1.015}><octahedronGeometry args={[1.18,0]} /><meshBasicMaterial color={color} wireframe transparent opacity={.8} /></mesh>
-      <mesh scale={.48}><octahedronGeometry args={[1.18,0]} /><meshBasicMaterial color={color} /></mesh>
-      {shards.map((a,i) => <mesh key={i} position={[Math.cos(a)*1.65, Math.sin(a)*1.65,0]} rotation={[0,0,a]}><boxGeometry args={[.13,.35,.12]} /><meshStandardMaterial color="#304453" metalness={.9} roughness={.3} emissive={color} emissiveIntensity={.22}/></mesh>)}
-    </group>
-    <group ref={rings} rotation={[.3,-.3,0]}>
-      {[2.05,2.25,2.7].map((r,i) => <group key={r} rotation={[i*.6,i*.35,i*.7]}>
-        <mesh><torusGeometry args={[r,.012,6,160]} /><meshBasicMaterial color={color} transparent opacity={i===2?.2:.6}/></mesh>
-        <mesh rotation={[0,0,1]}><torusGeometry args={[r,.035,6,100,Math.PI*.62]} /><meshBasicMaterial color={color}/></mesh>
-      </group>)}
-      {Array.from({length:60},(_,i)=> <mesh key={i} position={[Math.cos(i*Math.PI/30)*2.45,Math.sin(i*Math.PI/30)*2.45,0]} rotation={[0,0,i*Math.PI/30]}><boxGeometry args={[i%5===0?.16:.055,.012,.015]}/><meshBasicMaterial color={color} transparent opacity={i%5===0?.65:.25}/></mesh>)}
+  return <group ref={core} name="reliquary-core">
+    <mesh position={[0,0,-.45]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[1.8,1.55,.7,12,1,true]}/><meshStandardMaterial color="#252e38" metalness={.88} roughness={.3} side={THREE.DoubleSide}/></mesh>
+    <mesh ref={energy} position={[0,0,-.15]} material={shader}><icosahedronGeometry args={[1,4]}/></mesh>
+    <group ref={shell}>{Array.from({length:6},(_,i)=><group key={i}>
+      <mesh geometry={geometry.outer}><meshStandardMaterial color={i%2?'#252c32':'#373a3d'} metalness={.91} roughness={.26}/></mesh>
+      <mesh geometry={geometry.rim} position={[0,0,.25]}><meshStandardMaterial color="#877b61" metalness={.86} roughness={.28}/></mesh>
+      <mesh position={[1.89,0,.42]}><boxGeometry args={[.43,.07,.07]}/><meshBasicMaterial color="#7a9daa" transparent opacity={.7}/></mesh>
+      <mesh position={[2.05,0,.47]} rotation={[0,Math.PI/2,0]}><cylinderGeometry args={[.14,.14,.17,6]}/><meshStandardMaterial color="#161d23" metalness={.9} roughness={.22}/></mesh>
+      {[-1,1].map(sign=><mesh key={sign} position={[1.88,sign*.52,.42]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.07,.07,.08,6]}/><meshStandardMaterial color="#978976" metalness={.8} roughness={.25}/></mesh>)}
+    </group>)}</group>
+    <group ref={iris}>{Array.from({length:6},(_,i)=><mesh key={i} geometry={geometry.shutter}><meshStandardMaterial color="#111b23" metalness={.9} roughness={.22}/></mesh>)}</group>
+    <group ref={rotor} position={[0,0,-.1]}>
+      <mesh><torusGeometry args={[2.53,.08,6,96]}/><meshStandardMaterial color="#3e4248" metalness={.9} roughness={.28}/></mesh>
+      <mesh><torusGeometry args={[2.55,.017,6,96]}/><meshBasicMaterial ref={glow} color="#91c6d6" transparent opacity={.25}/></mesh>
+      {Array.from({length:12},(_,i)=>{const a=i*Math.PI/6;return <group key={i} position={[Math.cos(a)*2.6,Math.sin(a)*2.6,0]} rotation={[0,0,a]}>
+        <mesh><boxGeometry args={[.25,.23,.28]}/><meshStandardMaterial color="#222a30" metalness={.8} roughness={.25}/></mesh>
+        <mesh position={[.07,0,.16]}><boxGeometry args={[.13,.035,.025]}/><meshBasicMaterial color="#7e9ca6"/></mesh>
+      </group>})}
     </group>
   </group>
 }
