@@ -104,3 +104,20 @@ Avoid building physics, navigation, collision systems, world simulation or other
 Astra should turn the current scaffold into the first production-quality **single-winner cinematic** before adding every draw mode. Finish one polished 10–20 second sequence, validate desktop/mobile performance, then reuse that visual language for ranking and team-grouping sequences.
 
 See [`ASTRA.md`](./ASTRA.md) before major implementation work.
+
+## Cinematic experience (September 2026)
+
+The single-winner experience now includes an orbital reactor, animated entry shards,
+phase-directed camera movement, a gold winner reveal, and procedural Web Audio cues.
+The sequence lasts approximately 11 seconds. Reduced-motion mode reveals in one second.
+
+- Edit 2–50 participant names in the left panel (one per line, up to 40 characters).
+- Participants and the latest 20 results are saved locally when browser storage permits.
+- Optionally exclude recent winners. Editing the roster starts a new history.
+- Replay plays the existing result without resolving a new draw or adding history.
+- Sound, full-screen, reduced motion, and LITE/HIGH/ULTRA rendering controls are available.
+- LITE disables post-processing; WebGL failures fall back to a 2D core and readable result.
+- All scene geometry and audio are procedural. Google Fonts are optional with system fallbacks.
+
+This is a local event tool. The backend/persisted audit boundary above still applies to
+server-authoritative or regulated use. Local history is a convenience, not an audit log.
