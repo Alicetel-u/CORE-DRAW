@@ -7,7 +7,7 @@ import type { DrawMode, DrawPhase, DrawResult, Participant, QualityTier } from '
 import { demoParticipants } from './data/demoParticipants'
 import { DrawStage } from './scene/DrawStage'
 
-const APP_VERSION = 'v0.5.6'
+const APP_VERSION = 'v0.5.7'
 
 type Panel = 'participants' | 'history' | 'modes' | null
 type HistoryEntry = {
@@ -299,14 +299,14 @@ export default function App() {
           <section className={`draw-rule-panel ${!exclusionApplies ? 'rule-disabled' : ''}`}>
             <div className="draw-rule-heading"><span>抽選ルール</span>{exclusionApplies && excludedIds.length > 0 && <small>除外記録 {excludedIds.length}人</small>}</div>
             {exclusionApplies ? <>
-              <div className="rule-options" role="group" aria-label="重複ルール">
-                <button className={!noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(false)}>重複あり</button>
-                <button className={noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(true)}>重複なし</button>
+              <div className="rule-options" role="group" aria-label="抽選ルール">
+                <button className={!noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(false)}>毎回抽選</button>
+                <button className={noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(true)}>当選者除外</button>
               </div>
               <div className="rule-stats"><span>候補 <b>{eligible.length}</b>人</span><span>除外 <b>{activeExcludedCount}</b>人</span></div>
-              <p>{noDuplicates ? '当たった人は、この周回では次から外れます。' : '毎回、全員が抽選の候補になります。'}</p>
+              <p>{noDuplicates ? '当選した人は、この周回では次から外れます。' : '毎回、全員を候補にして抽選します。'}</p>
               <button className="reset-exclusions" disabled={busy || excludedIds.length === 0} onClick={resetExclusions}>↻ 除外をリセット</button>
-            </> : <p className="rule-note">このモードは全員参加なので、重複設定は使いません。</p>}
+            </> : <p className="rule-note">このモードは全員参加なので、当選者の除外設定は使いません。</p>}
           </section>
 
           <button className="history-button" disabled={busy} onClick={() => setPanel('history')}><span>これまでの結果</span><span>{history.length}件</span></button>
@@ -328,7 +328,7 @@ export default function App() {
           <div className="draw-meta"><span>候補</span><strong>{eligible.length}<small>{noDuplicates && exclusionApplies ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
           <div className="launch-area">
             <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={busy || (!cycleExhausted && eligible.length < 2)}><span>▶</span>{busy ? 'くじびき中…' : cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
-            <div className="launch-hint">{busy ? 'ちからを あつめています…' : cycleExhausted ? '除外をリセットして 全員を候補に戻します。' : eligible.length < 2 ? '候補が 2人以上 必要です。' : revealed ? <button className="replay" onClick={() => result && play(result, true)}>▶ おなじけっかを もういちど</button> : noDuplicates && exclusionApplies ? '重複なし：当選者は次回から除外されます。' : modeMeta.description}</div>
+            <div className="launch-hint">{busy ? 'ちからを あつめています…' : cycleExhausted ? '除外をリセットして 全員を候補に戻します。' : eligible.length < 2 ? '候補が 2人以上 必要です。' : revealed ? <button className="replay" onClick={() => result && play(result, true)}>▶ おなじけっかを もういちど</button> : noDuplicates && exclusionApplies ? '当選者除外：当選した人は次回から外れます。' : modeMeta.description}</div>
           </div>
           <div className="draw-meta align-right"><span>{targetLabel}</span><strong>{targetValue}<small> {targetUnit}</small></strong></div>
         </div>
