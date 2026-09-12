@@ -1,0 +1,80 @@
+/* v0.6.2: choose party split by party count or target members per party. */
+.grouping-config{
+  margin:-8px 0 18px;
+  padding:12px;
+  background:linear-gradient(180deg,#0b2d91,#061d6d);
+  border:3px double #fff;
+  border-radius:4px;
+  box-shadow:0 3px 0 #010b35,inset 0 0 0 1px #5274d2;
+}
+.grouping-config-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+  color:#fff;
+  font:14px 'DotGothic16','Noto Sans JP',sans-serif;
+}
+.grouping-method-options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+  margin-bottom:9px;
+}
+.grouping-method-options button{
+  min-height:36px;
+  padding:6px 5px;
+  border:2px solid rgba(255,255,255,.65);
+  border-radius:2px;
+  background:#041754;
+  color:#dce6ff;
+  font:12px/1.2 'DotGothic16','Noto Sans JP',sans-serif;
+}
+.grouping-method-options button.active{
+  border-color:#fff;
+  background:#143fa9;
+  color:var(--quest-yellow);
+  box-shadow:inset 0 0 0 1px #6987dc;
+}
+.grouping-method-options button:hover:not(:disabled){background:#1749bd}
+.grouping-value-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:#fff;
+  font:13px 'DotGothic16','Noto Sans JP',sans-serif;
+}
+.grouping-value-input{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+  color:#fff;
+  font-size:12px;
+}
+.grouping-value-input input{
+  width:72px;
+  padding:7px;
+  border:2px solid #fff;
+  border-radius:2px;
+  background:#020d3e;
+  color:var(--quest-yellow);
+  text-align:center;
+  font-size:16px;
+}
+.grouping-preview{
+  margin:9px 0 0;
+  padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.22);
+  color:#d8e4ff;
+  font:11px/1.5 'DotGothic16','Noto Sans JP',sans-serif;
+}
+.grouping-preview b{color:var(--quest-yellow);font-weight:700}
+@media(max-width:700px){
+  .grouping-config{margin:-4px 0 10px;padding:10px}
+  .grouping-method-options button{font-size:11px;min-height:34px}
+  .grouping-value-row{font-size:12px}
+  .grouping-value-input input{width:64px;font-size:14px;padding:6px}
+}
