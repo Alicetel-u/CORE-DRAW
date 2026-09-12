@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import packageJson from './package.json'
 
 const packageVersion = packageJson.version
+const coreDrawBase = (globalThis as { process?: { env?: { CORE_DRAW_BASE?: string } } }).process?.env?.CORE_DRAW_BASE || '/'
 
 const appVersionPlugin = {
   name: 'core-draw-app-version',
@@ -14,6 +15,7 @@ const appVersionPlugin = {
 }
 
 export default defineConfig({
+  base: coreDrawBase,
   plugins: [appVersionPlugin, react()],
   server: {
     host: '127.0.0.1',
