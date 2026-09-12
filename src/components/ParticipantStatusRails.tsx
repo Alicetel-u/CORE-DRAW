@@ -80,7 +80,8 @@ export function ParticipantStatusRails({
   function party(group: string[], groupIndex: number) {
     const members = group.map((id) => participantById.get(id)).filter((participant): participant is Participant => Boolean(participant))
     const colorClass = `party-color-${groupIndex % 8 + 1}`
-    return <section className={`party-group ${colorClass}`} key={`party-${groupIndex}`}>
+    const sizeClass = members.length > 16 ? 'party-size-huge' : members.length > 8 ? 'party-size-large' : 'party-size-normal'
+    return <section className={`party-group ${colorClass} ${sizeClass}`} key={`party-${groupIndex}`}>
       <header className="party-group-heading">
         <strong>{groupIndex + 1}組</strong>
         <span>{members.length}人</span>
