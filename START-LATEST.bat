@@ -18,14 +18,14 @@ git pull --ff-only origin main
 if errorlevel 1 (
   echo.
   echo Git pull failed. Local changes may exist.
-  echo Nothing was overwritten.
+  echo If package-lock.json is the only changed file, run: git restore package-lock.json
   pause
   exit /b 1
 )
 
 echo.
-echo [3/4] Syncing dependencies...
-call npm install
+echo [3/4] Syncing dependencies without rewriting package-lock...
+call npm install --package-lock=false
 if errorlevel 1 (
   echo.
   echo npm install failed.
