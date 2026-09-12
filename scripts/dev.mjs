@@ -1,4 +1,5 @@
 import { execFileSync, execSync, spawn } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
@@ -11,6 +12,41 @@ const HOST = '127.0.0.1'
 
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8', cwd: root }).trim()
+}
+
+function packageVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+function buildBadgePlugin() {
+  return {
+    name: 'core-draw-local-build-badge',
+    transformIndexHtml(html) {
+      let commit = 'unknown'
+      try {
+        commit = git(['rev-parse', '--short', 'HEAD'])
+      } catch {
+        // Keep the page usable even when git metadata is unavailable.
+      }
+      const version = packageVersion()
+      return {
+        html,
+        tags: [{
+          tag: 'div',
+          attrs: {
+            id: 'core-local-build',
+            style: 'position:fixed;right:10px;bottom:8px;z-index:99999;padding:5px 8px;border:1px solid rgba(232,197,140,.28);background:rgba(5,9,13,.84);backdrop-filter:blur(8px);color:#b6c2ca;font:10px monospace;letter-spacing:.6px;pointer-events:none;border-radius:3px',
+          },
+          children: `LOCAL v${version} · ${commit}`,
+          injectTo: 'body',
+        }],
+      }
+    },
+  }
 }
 
 function freePort(port) {
@@ -72,6 +108,7 @@ async function startVite() {
   freePort(PORT)
   server = await createServer({
     root,
+    plugins: [buildBadgePlugin()],
     server: {
       host: HOST,
       port: PORT,
@@ -81,6 +118,7 @@ async function startVite() {
   })
   await server.listen()
   server.printUrls()
+  console.log(`[core-draw] serving v${packageVersion()} @ ${git(['rev-parse', '--short', 'HEAD'])}`)
   console.log('[core-draw] watching origin/main — GitHub edits will reload this page')
 }
 
