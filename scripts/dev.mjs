@@ -35,9 +35,24 @@ function freePort(port) {
   }
 }
 
+function healGeneratedLockfile() {
+  try {
+    const dirtyLines = git(['status', '--porcelain'])
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (dirtyLines.length > 0 && dirtyLines.every((line) => line.endsWith('package-lock.json'))) {
+      git(['restore', '--', 'package-lock.json'])
+      console.log('[core-draw] restored generated package-lock.json drift before sync')
+    }
+  } catch {
+    /* Leave unusual local states untouched. */
+  }
+}
+
 function npmInstall() {
   return new Promise((resolve, reject) => {
-    const child = spawn('npm', ['install'], { cwd: root, stdio: 'inherit', shell: true })
+    const child = spawn('npm', ['install', '--package-lock=false'], { cwd: root, stdio: 'inherit', shell: true })
     child.on('exit', (code) => {
       if (code === 0) resolve()
       else reject(new Error(`npm install exited ${code}`))
@@ -73,6 +88,7 @@ async function syncFromOrigin() {
   if (syncing) return
   syncing = true
   try {
+    healGeneratedLockfile()
     git(['fetch', 'origin', 'main'])
     const behind = Number(git(['rev-list', '--count', 'HEAD..origin/main']))
     if (!behind) return
@@ -91,7 +107,7 @@ async function syncFromOrigin() {
     console.log(`[core-draw] synced ${from} -> ${to}`)
     const pkgAfter = git(['show', 'HEAD:package.json'])
     if (pkgBefore !== pkgAfter) {
-      console.log('[core-draw] package.json changed; reinstalling and restarting Vite')
+      console.log('[core-draw] package.json changed; reinstalling without rewriting package-lock and restarting Vite')
       await npmInstall()
       await startVite()
       return
