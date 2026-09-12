@@ -7,7 +7,7 @@ import type { DrawMode, DrawPhase, DrawResult, Participant, QualityTier } from '
 import { demoParticipants } from './data/demoParticipants'
 import { DrawStage } from './scene/DrawStage'
 
-const APP_VERSION = 'v0.4.0'
+const APP_VERSION = 'v0.4.1'
 
 type Panel = 'participants' | 'history' | 'modes' | null
 type HistoryEntry = {
