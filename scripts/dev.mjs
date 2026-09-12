@@ -22,16 +22,45 @@ function packageVersion() {
   }
 }
 
+function currentCommit() {
+  try {
+    return git(['rev-parse', '--short', 'HEAD'])
+  } catch {
+    return 'unknown'
+  }
+}
+
+function currentRemote() {
+  try {
+    return git(['remote', 'get-url', 'origin'])
+  } catch {
+    return 'unknown'
+  }
+}
+
 function buildBadgePlugin() {
   return {
     name: 'core-draw-local-build-badge',
+    configureServer(viteServer) {
+      viteServer.middlewares.use('/__core_status', (_req, res) => {
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-store, max-age=0')
+        res.end(JSON.stringify({
+          app: 'CORE-DRAW',
+          version: packageVersion(),
+          commit: currentCommit(),
+          root,
+          remote: currentRemote(),
+          dirty: (() => {
+            try { return Boolean(git(['status', '--porcelain'])) } catch { return null }
+          })(),
+          servedAt: new Date().toISOString(),
+        }, null, 2))
+      })
+    },
     transformIndexHtml(html) {
-      let commit = 'unknown'
-      try {
-        commit = git(['rev-parse', '--short', 'HEAD'])
-      } catch {
-        // Keep the page usable even when git metadata is unavailable.
-      }
+      const commit = currentCommit()
       const version = packageVersion()
       return {
         html,
@@ -39,7 +68,7 @@ function buildBadgePlugin() {
           tag: 'div',
           attrs: {
             id: 'core-local-build',
-            style: 'position:fixed;right:10px;bottom:8px;z-index:99999;padding:5px 8px;border:1px solid rgba(232,197,140,.28);background:rgba(5,9,13,.84);backdrop-filter:blur(8px);color:#b6c2ca;font:10px monospace;letter-spacing:.6px;pointer-events:none;border-radius:3px',
+            style: 'position:fixed;right:10px;bottom:8px;z-index:99999;padding:5px 8px;border:1px solid rgba(255,255,255,.42);background:rgba(3,19,77,.9);color:#fff;font:11px monospace;letter-spacing:.5px;pointer-events:none;border-radius:3px',
           },
           children: `LOCAL v${version} · ${commit}`,
           injectTo: 'body',
@@ -71,21 +100,6 @@ function freePort(port) {
   }
 }
 
-function healGeneratedLockfile() {
-  try {
-    const dirtyLines = git(['status', '--porcelain'])
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-    if (dirtyLines.length > 0 && dirtyLines.every((line) => line.endsWith('package-lock.json'))) {
-      git(['restore', '--', 'package-lock.json'])
-      console.log('[core-draw] restored generated package-lock.json drift before sync')
-    }
-  } catch {
-    /* Leave unusual local states untouched. */
-  }
-}
-
 function npmInstall() {
   return new Promise((resolve, reject) => {
     const child = spawn('npm', ['install', '--package-lock=false'], { cwd: root, stdio: 'inherit', shell: true })
@@ -96,9 +110,24 @@ function npmInstall() {
   })
 }
 
+function preserveLocalWorkBeforeSync() {
+  const dirty = git(['status', '--porcelain'])
+  if (dirty) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    git(['stash', 'push', '-u', '-m', `CORE-DRAW auto-backup ${stamp}`])
+    console.log('[core-draw] local file changes were stashed before latest sync')
+  }
+
+  const ahead = Number(git(['rev-list', '--count', 'origin/main..HEAD']))
+  if (ahead > 0) {
+    const branch = `core-local-backup-${Date.now()}`
+    git(['branch', branch, 'HEAD'])
+    console.log(`[core-draw] preserved ${ahead} local commit(s) on ${branch}`)
+  }
+}
+
 let server
 let syncing = false
-let lastSkipLog = 0
 
 async function startVite() {
   if (server) {
@@ -113,46 +142,48 @@ async function startVite() {
       host: HOST,
       port: PORT,
       strictPort: true,
-      headers: { 'Cache-Control': 'no-store' },
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     },
   })
   await server.listen()
   server.printUrls()
-  console.log(`[core-draw] serving v${packageVersion()} @ ${git(['rev-parse', '--short', 'HEAD'])}`)
-  console.log('[core-draw] watching origin/main — GitHub edits will reload this page')
+  console.log(`[core-draw] serving v${packageVersion()} @ ${currentCommit()}`)
+  console.log(`[core-draw] status: http://${HOST}:${PORT}/__core_status`)
+  console.log('[core-draw] watching origin/main — remote edits auto-backup local work, sync, and reload')
 }
 
 async function syncFromOrigin() {
   if (syncing) return
   syncing = true
   try {
-    healGeneratedLockfile()
     git(['fetch', 'origin', 'main'])
     const behind = Number(git(['rev-list', '--count', 'HEAD..origin/main']))
     if (!behind) return
-    const dirty = git(['status', '--porcelain'])
-    if (dirty) {
-      if (Date.now() - lastSkipLog > 30_000) {
-        console.log(`[core-draw] origin/main is ${behind} commit(s) ahead; skipped because this folder has local changes`)
-        lastSkipLog = Date.now()
-      }
-      return
-    }
-    const from = git(['rev-parse', '--short', 'HEAD'])
+
+    const from = currentCommit()
     const pkgBefore = git(['show', 'HEAD:package.json'])
-    git(['pull', '--ff-only', 'origin', 'main'])
-    const to = git(['rev-parse', '--short', 'HEAD'])
-    console.log(`[core-draw] synced ${from} -> ${to}`)
+
+    preserveLocalWorkBeforeSync()
+    git(['reset', '--hard', 'origin/main'])
+
+    const to = currentCommit()
     const pkgAfter = git(['show', 'HEAD:package.json'])
+    console.log(`[core-draw] synced ${from} -> ${to} (${behind} remote commit(s))`)
+
     if (pkgBefore !== pkgAfter) {
-      console.log('[core-draw] package.json changed; reinstalling without rewriting package-lock and restarting Vite')
+      console.log('[core-draw] package.json changed; reinstalling and restarting Vite')
       await npmInstall()
       await startVite()
       return
     }
+
     server?.ws.send({ type: 'full-reload', path: '*' })
   } catch (error) {
-    console.warn('[core-draw] sync skipped:', error instanceof Error ? error.message : error)
+    console.warn('[core-draw] sync failed:', error instanceof Error ? error.message : error)
   } finally {
     syncing = false
   }
@@ -162,4 +193,4 @@ await startVite()
 await syncFromOrigin()
 setInterval(() => {
   void syncFromOrigin()
-}, 5000)
+}, 3000)
