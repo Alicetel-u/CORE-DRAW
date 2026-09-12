@@ -30,6 +30,16 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
   const label = useRef<THREE.MeshBasicMaterial>(null)
   const frame = useRef<THREE.MeshPhysicalMaterial>(null)
   const design = useMemo(() => identity(participant.id), [participant.id])
+
+  const cardCopy = useMemo(() => {
+    if (mode === 'single_winner') return { kicker: 'WINNER', number: 1, footer: 'CORE / CHOSEN' }
+    if (mode === 'multi_winner') return { kicker: 'WINNER', number: resultIndex + 1, footer: 'MULTI DRAW / SELECTED' }
+    if (mode === 'top_n_ordered') return { kicker: 'RANK', number: resultIndex + 1, footer: 'TOP-N / FINAL RANK' }
+    if (mode === 'ordered_list') return { kicker: 'ORDER', number: resultIndex + 1, footer: 'ORDERED LIST / FINAL' }
+    if (mode === 'shuffle_only') return { kicker: 'ORDER', number: resultIndex + 1, footer: 'SHUFFLE / FINAL ORDER' }
+    return { kicker: `TEAM ${String(groupIndex + 1).padStart(2, '0')}`, number: groupPosition + 1, footer: 'GROUPING / MEMBER' }
+  }, [mode, resultIndex, groupIndex, groupPosition])
+
   const resources = useMemo(() => {
     const color = new THREE.Color().setHSL(design.hue, .46, .64)
     return {
@@ -42,9 +52,9 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       glass: plate(1.78, 2.82, .2, .06),
       corner: plate(.36, .82, .1, .14),
       shader: hologram(color, design.seed),
-      texture: nameTexture(participant.name, participant.number ?? index + 1),
+      texture: nameTexture(participant.name, cardCopy.number, cardCopy.kicker, cardCopy.footer),
     }
-  }, [design, participant.name, participant.number, index])
+  }, [design, participant.name, cardCopy])
 
   useEffect(() => () => {
     resources.body.dispose()
@@ -73,54 +83,59 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       } else {
         const count = Math.max(1, revealTotal)
         const normalizedIndex = count <= 1 ? 0 : Math.min(resultIndex, count - 1) / (count - 1)
-        const delay = normalizedIndex * .13
+        const delay = normalizedIndex * .085
         const t = clamp01((s.formation - delay) / Math.max(.001, 1 - delay))
         const arc = Math.sin(t * Math.PI)
-        const launchAngle = resultIndex * GOLDEN_ANGLE + groupIndex * .37
+        const launchAngle = resultIndex * GOLDEN_ANGLE + groupIndex * .31
         let finalX = 0
         let finalY = 0
-        let finalScale = .4
+        let finalScale = .48
         let finalRz = 0
 
         if (mode === 'grouping') {
-          const spacingX = portrait ? 1.15 : 1.65
-          const spacingY = portrait ? .86 : 1.08
+          const spacingX = portrait ? 1.7 : Math.max(2.25, 3.1 - Math.max(0, groupCount - 2) * .25)
+          const spacingY = portrait ? 1.25 : 1.55
           finalX = (groupIndex - (groupCount - 1) / 2) * spacingX
           finalY = ((groupSize - 1) / 2 - groupPosition) * spacingY
-          finalScale = Math.max(.1, Math.min(portrait ? .4 : .48, (portrait ? 2.8 : 5.3) / Math.max(2, groupCount * 1.6), 3.8 / Math.max(2, groupSize * 1.25)))
+          finalScale = Math.max(.13, Math.min(
+            portrait ? .54 : .7,
+            (portrait ? 4.4 : 8.8) / Math.max(2, groupCount * 2.05),
+            (portrait ? 5.3 : 6.8) / Math.max(2, groupSize * 2.25),
+          ))
         } else {
-          const maxCols = portrait ? 4 : 7
-          const cols = mode === 'multi_winner' || mode === 'top_n_ordered'
-            ? Math.min(maxCols, count)
-            : Math.min(maxCols, Math.max(2, Math.ceil(Math.sqrt(count * (portrait ? .8 : 1.45)))))
+          const highlightMode = mode === 'multi_winner' || mode === 'top_n_ordered'
+          const maxCols = portrait ? (highlightMode ? 2 : 3) : (highlightMode ? 4 : 5)
+          const cols = Math.min(maxCols, count)
           const rows = Math.ceil(count / cols)
           const col = resultIndex % cols
           const row = Math.floor(resultIndex / cols)
-          const spacingX = portrait ? .92 : 1.22
-          const spacingY = portrait ? 1.2 : 1.45
+          const spacingX = portrait ? 1.45 : (highlightMode ? 2.45 : 1.95)
+          const spacingY = portrait ? 1.7 : (highlightMode ? 2.05 : 1.9)
           finalX = (col - (cols - 1) / 2) * spacingX
           finalY = ((rows - 1) / 2 - row) * spacingY
-          const limit = mode === 'multi_winner' || mode === 'top_n_ordered' ? .66 : .48
-          finalScale = Math.max(.1, Math.min(limit, (portrait ? 3.1 : 6.4) / Math.max(2, cols * 1.9), 4.8 / Math.max(2, rows * 2.7)))
-          finalRz = mode === 'top_n_ordered' ? (col - (cols - 1) / 2) * -.025 : 0
+          const limit = highlightMode ? (portrait ? .7 : .92) : (portrait ? .48 : .62)
+          finalScale = Math.max(.12, Math.min(
+            limit,
+            (portrait ? 4.4 : 9.2) / Math.max(2, cols * 2.05),
+            (portrait ? 5.6 : 7.1) / Math.max(2, rows * 2.55),
+          ))
+          finalRz = mode === 'top_n_ordered' ? (col - (cols - 1) / 2) * -.035 : 0
         }
 
-        const startX = Math.cos(launchAngle) * .08
-        const startY = Math.sin(launchAngle) * .08
-        const curveX = Math.cos(launchAngle) * arc * (portrait ? .34 : .52)
-        const curveY = Math.sin(launchAngle) * arc * (portrait ? .28 : .4)
-        const curveZ = arc * (portrait ? .85 : 1.2)
+        const curveX = Math.cos(launchAngle) * arc * (portrait ? .5 : .78)
+        const curveY = Math.sin(launchAngle) * arc * (portrait ? .42 : .62)
+        const curveZ = arc * (portrait ? 1.05 : 1.55)
         node.position.set(
-          THREE.MathUtils.lerp(startX, finalX, t) + curveX,
-          THREE.MathUtils.lerp(startY, finalY, t) + curveY,
-          THREE.MathUtils.lerp(.42, 3.2 + resultIndex * .002, t) + curveZ,
+          finalX * t + curveX,
+          finalY * t + curveY,
+          THREE.MathUtils.lerp(.38, 3.2 + resultIndex * .002, t) + curveZ,
         )
         node.rotation.set(
-          THREE.MathUtils.lerp((resultIndex % 3 - 1) * .42, 0, t),
-          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * 1.28, 0, t),
-          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * .38, finalRz, t),
+          THREE.MathUtils.lerp((resultIndex % 3 - 1) * .34, 0, t),
+          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * 1.08, 0, t),
+          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * .28, finalRz, t),
         )
-        const scale = THREE.MathUtils.lerp(.075, finalScale, t) * (1 + arc * .08)
+        const scale = THREE.MathUtils.lerp(.008, finalScale, t) * (1 + arc * .1)
         node.scale.setScalar(scale)
       }
     } else {
@@ -133,6 +148,9 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     }
 
     const awakening = hero ? s.awaken : 0
+    const cardReadability = mode === 'single_winner'
+      ? s.readable
+      : Math.max(s.readable, clamp01((s.formation - .7) / .3) * .94)
     resources.shader.uniforms.uTime.value = s.running ? s.time : clock.elapsedTime * .22
     resources.shader.uniforms.uAwaken.value = awakening
     if (frame.current) {
@@ -141,7 +159,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       frame.current.emissiveIntensity = .035 + awakening * .11
       frame.current.roughness = .24 - awakening * .035
     }
-    if (label.current) label.current.opacity = hero ? s.readable : 0
+    if (label.current) label.current.opacity = hero ? cardReadability : 0
     if (armor.current) armor.current.children.forEach((part, i) => {
       const x = i % 2 === 0 ? -1 : 1
       const y = i < 2 ? 1 : -1
@@ -174,7 +192,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       <mesh rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[.115, .115, .05]} /><meshStandardMaterial color="#f0ece1" metalness={.62} roughness={.18} /></mesh>
     </group>
     <group ref={armor}>{[0, 1, 2, 3].map((i) => <group key={i}><mesh geometry={resources.corner}><meshPhysicalMaterial color="#929ca3" metalness={.93} roughness={.2} clearcoat={.22} envMapIntensity={1.4} /></mesh><mesh position={[0, 0, .16]}><boxGeometry args={[.045, .4, .045]} /><meshBasicMaterial color={resources.color} transparent opacity={.72} toneMapped={false} /></mesh></group>)}</group>
-    <mesh position={[0, -.58, .315]}><planeGeometry args={[1.7, .85]} /><meshBasicMaterial ref={label} map={resources.texture} transparent opacity={0} depthWrite={false} toneMapped={false} /></mesh>
+    <mesh position={[0, -.48, .315]}><planeGeometry args={[1.84, 1.08]} /><meshBasicMaterial ref={label} map={resources.texture} transparent opacity={0} depthWrite={false} toneMapped={false} /></mesh>
     <mesh position={[0, 1.12, .315]}><boxGeometry args={[.78, .022, .03]} /><meshStandardMaterial color="#d2dce0" emissive={resources.color} emissiveIntensity={.18} metalness={.7} /></mesh>
     <mesh position={[0, -1.23, .315]}><boxGeometry args={[.78, .022, .03]} /><meshStandardMaterial color="#d2dce0" emissive={resources.color} emissiveIntensity={.18} metalness={.7} /></mesh>
     <group position={[0, 0, -.255]} rotation={[0, Math.PI, 0]}>
