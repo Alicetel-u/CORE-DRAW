@@ -26,14 +26,25 @@ export function createDemoParticipants(): Participant[] {
 
 export const demoParticipants: Participant[] = createDemoParticipants()
 
+function isLegacyDefaultName(name: string) {
+  const normalized = name
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, '')
+    .toUpperCase()
+
+  return /^(?:PLAYER|プレイヤー)0*\d+$/.test(normalized)
+}
+
 try {
   const stored = JSON.parse(localStorage.getItem('core-participants') ?? 'null') as Participant[] | null
   const legacyDefaults = Array.isArray(stored)
-    && stored.length === 12
-    && stored.every((participant, index) => participant?.id === `demo-${index + 1}` && /^PLAYER \d{2}$/.test(participant?.name ?? ''))
+    && stored.length >= 2
+    && stored.every((participant) => typeof participant?.name === 'string' && isLegacyDefaultName(participant.name))
 
   if (legacyDefaults) {
-    localStorage.setItem('core-participants', JSON.stringify(demoParticipants))
+    localStorage.setItem('core-participants', JSON.stringify(createDemoParticipants()))
+    localStorage.removeItem('core-history')
   }
 } catch {
   // Keep defaults usable when storage is unavailable.
