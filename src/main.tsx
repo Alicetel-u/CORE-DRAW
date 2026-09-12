@@ -4,6 +4,7 @@ import App from './App'
 import './styles.css'
 import './modes.css'
 import './quest.css'
+import './roster-fix.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
