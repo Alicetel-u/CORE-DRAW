@@ -1,0 +1,72 @@
+/* v0.5.1 roster cleanup: keep the JRPG window, remove noisy list decorations. */
+.roster{
+  scrollbar-width:none;
+}
+.roster::-webkit-scrollbar{
+  display:none;
+}
+.roster-row{
+  position:relative;
+  gap:10px;
+  padding:9px 8px;
+  border:0!important;
+  background:transparent;
+  font-size:15px;
+  line-height:1.35;
+}
+.roster-row::before,
+.roster-row::after{
+  content:none!important;
+  display:none!important;
+}
+.roster-row + .roster-row{
+  border-top:0!important;
+}
+.avatar{
+  display:inline-block;
+  width:28px;
+  height:auto;
+  flex:0 0 28px;
+  padding:0;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  color:#cbd8ff;
+  font-size:13px!important;
+  line-height:1.35;
+  text-align:right;
+}
+.avatar::before,
+.avatar::after{
+  content:none!important;
+  display:none!important;
+}
+.roster-row > span:nth-child(2){
+  min-width:0;
+  flex:1;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.roster-row i{
+  display:none!important;
+}
+.roster-row.chosen{
+  color:var(--quest-yellow);
+  background:rgba(255,230,111,.08);
+}
+.roster-row.chosen .avatar{
+  color:var(--quest-yellow);
+}
+
+@media(max-width:700px){
+  .roster-row{
+    padding:8px 6px;
+    font-size:14px;
+  }
+  .avatar{
+    width:25px;
+    flex-basis:25px;
+    font-size:12px!important;
+  }
+}
