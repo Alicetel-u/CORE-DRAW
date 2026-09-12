@@ -8,9 +8,10 @@ import { demoParticipants } from './data/demoParticipants'
 import { DrawStage } from './scene/DrawStage'
 import { ParticipantStatusRails } from './components/ParticipantStatusRails'
 
-const APP_VERSION = 'v0.5.9'
+const APP_VERSION = 'v0.6.2'
 
 type Panel = 'participants' | 'history' | 'modes' | null
+type GroupingBasis = 'count' | 'size'
 type HistoryEntry = {
   id: string
   mode: DrawMode
@@ -31,7 +32,7 @@ const MODE_META: Record<DrawMode, ModeMeta> = {
   multi_winner: { label: '何人か えらぶ', en: 'ふくすう', icon: '✦', description: 'なかまから 指定した人数を えらびます' },
   ordered_list: { label: 'じゅんばんを きめる', en: 'じゅんばん', icon: '≋', description: 'なかま全員の じゅんばんを きめます' },
   top_n_ordered: { label: 'ランキングを きめる', en: 'ランキング', icon: '△', description: '上位の なかまを 順位つきで えらびます' },
-  grouping: { label: 'パーティーわけ', en: 'パーティー', icon: '◇', description: 'なかまを 指定した数の パーティーに わけます' },
+  grouping: { label: 'パーティーわけ', en: 'パーティー', icon: '◇', description: '組数か 1組の人数を決めて パーティーに わけます' },
   shuffle_only: { label: 'ならびかえる', en: 'シャッフル', icon: '↻', description: 'なかま全員を ランダムに ならびかえます' },
 }
 
@@ -60,6 +61,11 @@ function read<T>(key: string, fallback: T): T {
   } catch {
     return fallback
   }
+}
+
+function initialGroupingBasis(): GroupingBasis {
+  const saved = read<string>('core-grouping-basis', 'count')
+  return saved === 'size' ? 'size' : 'count'
 }
 
 function initialParticipants() {
@@ -139,7 +145,9 @@ export default function App() {
   const [result, setResult] = useState<DrawResult | null>(null)
   const [mode, setMode] = useState<DrawMode>('single_winner')
   const [winnerCount, setWinnerCount] = useState(2)
-  const [groupCount, setGroupCount] = useState(2)
+  const [groupCount, setGroupCount] = useState(() => read<number>('core-group-count', 2))
+  const [groupingBasis, setGroupingBasis] = useState<GroupingBasis>(initialGroupingBasis)
+  const [groupSize, setGroupSize] = useState(() => read<number>('core-group-size', 4))
   const [quality, setQuality] = useState<QualityTier>('high')
   const [sound, setSound] = useState(true)
   const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -166,7 +174,14 @@ export default function App() {
   const eligible = exclusionApplies && noDuplicates ? candidateParticipants : participants
   const activeExcludedCount = exclusionApplies && noDuplicates ? excludedParticipants.length : 0
   const safeWinnerCount = Math.max(1, Math.min(winnerCount, eligible.length))
-  const safeGroupCount = Math.max(2, Math.min(groupCount, Math.max(2, eligible.length)))
+  const groupingPopulation = participants.length
+  const safeGroupCount = Math.max(2, Math.min(groupCount, Math.max(2, groupingPopulation)))
+  const safeGroupSize = Math.max(1, Math.min(groupSize, Math.max(1, groupingPopulation - 1)))
+  const groupCountFromSize = Math.max(2, Math.min(Math.ceil(groupingPopulation / safeGroupSize), groupingPopulation))
+  const resolvedGroupCount = groupingBasis === 'size' ? groupCountFromSize : safeGroupCount
+  const smallestGroupSize = Math.floor(groupingPopulation / resolvedGroupCount)
+  const largestGroupSize = Math.ceil(groupingPopulation / resolvedGroupCount)
+  const groupSizeSummary = smallestGroupSize === largestGroupSize ? `${smallestGroupSize}人ずつ` : `${smallestGroupSize}〜${largestGroupSize}人`
   const orderedParticipants = result ? result.orderedIds.map((id) => participants.find((p) => p.id === id)).filter((p): p is Participant => Boolean(p)) : eligible
   const cycleExhausted = exclusionApplies && noDuplicates && excludedParticipants.length > 0 && eligible.length < 2
 
@@ -184,10 +199,13 @@ export default function App() {
       localStorage.setItem('core-history', JSON.stringify(history))
       localStorage.setItem('core-excluded-ids', JSON.stringify(excludedIds))
       localStorage.setItem('core-no-duplicates', JSON.stringify(noDuplicates))
+      localStorage.setItem('core-group-count', JSON.stringify(groupCount))
+      localStorage.setItem('core-grouping-basis', JSON.stringify(groupingBasis))
+      localStorage.setItem('core-group-size', JSON.stringify(groupSize))
     } catch {
       // Storage may be unavailable.
     }
-  }, [participants, history, excludedIds, noDuplicates])
+  }, [participants, history, excludedIds, noDuplicates, groupCount, groupingBasis, groupSize])
 
   useEffect(() => {
     if (panel) dialog.current?.showModal()
@@ -244,7 +262,7 @@ export default function App() {
       mode,
       participants: eligible,
       winnerCount: mode === 'multi_winner' || mode === 'top_n_ordered' ? safeWinnerCount : undefined,
-      groupCount: mode === 'grouping' ? safeGroupCount : undefined,
+      groupCount: mode === 'grouping' ? resolvedGroupCount : undefined,
     }))
   }
 
@@ -266,7 +284,7 @@ export default function App() {
   }
 
   const targetLabel = mode === 'grouping' ? 'パーティー' : mode === 'ordered_list' || mode === 'shuffle_only' ? 'なかま' : mode === 'top_n_ordered' ? '上位' : 'えらぶ人数'
-  const targetValue = mode === 'single_winner' ? 1 : mode === 'multi_winner' || mode === 'top_n_ordered' ? safeWinnerCount : mode === 'grouping' ? safeGroupCount : eligible.length
+  const targetValue = mode === 'single_winner' ? 1 : mode === 'multi_winner' || mode === 'top_n_ordered' ? safeWinnerCount : mode === 'grouping' ? resolvedGroupCount : eligible.length
   const targetUnit = mode === 'grouping' ? '組' : '人'
   const rosterCandidates = noDuplicates && exclusionApplies ? candidateParticipants : participants
   const rosterExcluded = noDuplicates && exclusionApplies ? excludedParticipants : []
@@ -293,7 +311,15 @@ export default function App() {
 
         <button className="mode-card mode-selector" disabled={busy} onClick={() => setPanel('modes')}><span className="mode-icon">{modeMeta.icon}</span><div><strong>{modeMeta.label}</strong><span>{modeMeta.description}</span></div><span className="mode-check">えらぶ</span></button>
         {(mode === 'multi_winner' || mode === 'top_n_ordered') && <label className="mode-config"><span>{mode === 'top_n_ordered' ? '上位 何人？' : '何人 えらぶ？'}</span><input type="number" min={1} max={Math.max(1, eligible.length)} value={safeWinnerCount} disabled={busy} onChange={(e) => setWinnerCount(Number(e.target.value) || 1)} /></label>}
-        {mode === 'grouping' && <label className="mode-config"><span>何パーティー？</span><input type="number" min={2} max={Math.max(2, eligible.length)} value={safeGroupCount} disabled={busy} onChange={(e) => setGroupCount(Number(e.target.value) || 2)} /></label>}
+        {mode === 'grouping' && <section className="grouping-config" aria-label="パーティーの分け方">
+          <div className="grouping-config-title"><span>分け方</span><span>{participants.length}人</span></div>
+          <div className="grouping-method-options" role="group" aria-label="パーティー分け方法">
+            <button className={groupingBasis === 'count' ? 'active' : ''} disabled={busy} onClick={() => setGroupingBasis('count')}>組数で決める</button>
+            <button className={groupingBasis === 'size' ? 'active' : ''} disabled={busy} onClick={() => setGroupingBasis('size')}>1組の人数で決める</button>
+          </div>
+          {groupingBasis === 'count' ? <div className="grouping-value-row"><span>何パーティー？</span><label className="grouping-value-input"><input type="number" min={2} max={Math.max(2, participants.length)} value={safeGroupCount} disabled={busy} onChange={(e) => setGroupCount(Number(e.target.value) || 2)} /><span>組</span></label></div> : <div className="grouping-value-row"><span>1組の人数</span><label className="grouping-value-input"><input type="number" min={1} max={Math.max(1, participants.length - 1)} value={safeGroupSize} disabled={busy} onChange={(e) => setGroupSize(Number(e.target.value) || 1)} /><span>人ずつ</span></label></div>}
+          <p className="grouping-preview">→ <b>{resolvedGroupCount}組</b> / {groupSizeSummary}{groupingBasis === 'size' && smallestGroupSize !== largestGroupSize ? '（余りは自動で均等調整）' : ''}</p>
+        </section>}
 
         <div className="roster-title"><span>{noDuplicates && exclusionApplies ? '抽選対象' : 'なかま'} <b>{eligible.length}人</b></span><button disabled={busy} onClick={() => { setDraft(participants.map((p) => p.name).join('\n')); setError(''); setPanel('participants') }}>いれかえる</button></div>
         <div className="roster">
