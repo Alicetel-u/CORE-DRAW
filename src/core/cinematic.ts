@@ -26,7 +26,7 @@ export function directDraw(s: CinematicState, reduced: boolean, audio: DrawAudio
   const tl = gsap.timeline({ onUpdate: () => progress(s.progress) })
   if (reduced) {
     tl.call(() => phase('charging'), [], 0)
-      .to(s, { shell: 1.4, shutter: 1, entries: 0, winner: 1, formation: 1, awaken: 1, readable: 1,
+      .to(s, { shell: 1.4, shutter: 1, entries: .012, winner: 1, formation: 1, awaken: 1, readable: 1,
         wz: 3.2, wy: .1, ws: 1, cy: .25, cz: 12.5, power: .35, duration: .7 }, 0)
       .call(() => { phase('reveal'); reveal() }, [], .7)
       .to(s, { progress: 100, duration: .3 }, .7)
@@ -46,33 +46,36 @@ export function directDraw(s: CinematicState, reduced: boolean, audio: DrawAudio
     .to(s, { cx: 3.15, cy: -.18, cz: 9.15, tx: .25, ty: -.05, roll: .035, duration: 1.5, ease: 'sine.inOut' }, CUES.orbit + 1.2)
     .to(s, { orbit: 13, spin: 15, power: 2.1, duration: 2.7, ease: 'power1.in' }, CUES.orbit)
 
-    // Beat 3: come back toward a readable front angle while the entries collapse into the CORE.
+    // Beat 3: collapse continuously into the CORE. Keep a microscopic trace of the entries
+    // so the next beat grows from the same spatial origin instead of appearing from nowhere.
     .call(() => { s.shot = 2; phase('selection'); audio?.cue('selection') }, [], CUES.compression)
     .to(s, { cx: .45, cy: .28, cz: 9.55, tx: 0, ty: 0, roll: 0, fov: 43, duration: .5, ease: 'power2.out' }, CUES.compression)
     .to(s, { cx: 0, cy: .08, cz: 8.75, duration: 1.35, ease: 'power2.out' }, CUES.compression + .45)
     .to(s, { absorption: 1, orbit: 20, spin: 21, duration: 1.45, ease: 'power2.in' }, CUES.compression)
-    .to(s, { entries: 0, duration: .18 }, 6.42)
-    .to(s, { shutter: 0, shell: 0, power: .02, duration: .38 }, 6.58)
+    .to(s, { entries: .012, duration: .24, ease: 'power1.in' }, 6.38)
+    .to(s, { shutter: .04, shell: .05, power: .055, duration: .38, ease: 'power1.inOut' }, 6.58)
 
-    // Beat 4: hold. The pause is part of the cut rhythm, not empty time.
+    // Beat 4: anticipation without a frozen frame. The camera and reactor keep creeping forward
+    // at a low constant velocity so the eye never reads this as a cut or stalled render.
     .set(s, { silence: 1, shot: 3 }, CUES.silence)
     .call(() => audio?.stop(), [], CUES.silence)
+    .to(s, { cx: -.12, cy: .015, cz: 8.38, tz: .18, spin: 22.35, orbit: 20.72, duration: CUES.impact - 6.58, ease: 'none' }, 6.58)
 
-    // Beat 5: break the silence in the same spatial setup. Revealed cards now leave the CORE
-    // on a continuous formation value instead of switching directly into their final layout.
+    // Beat 5: the same cards grow out of the CORE on impact. Formation begins immediately,
+    // overlapping the impact, camera chase and material awakening instead of waiting for a cut.
     .call(() => { phase('impact'); audio?.cue('impact') }, [], CUES.impact)
-    .set(s, { silence: 0, impact: 1, burst: 1, power: 4, fov: 55, roll: .04 }, CUES.impact)
+    .set(s, { silence: 0, impact: 1, burst: 1, power: 4, fov: 55, roll: .04,
+      winner: 1, formation: .001, ws: .05, wz: .42, wry: -1.25, wrz: -.32 }, CUES.impact)
+    .to(s, { formation: 1, duration: 3.0, ease: 'power1.out' }, CUES.impact)
     .to(s, { impact: 0, fov: 43, roll: 0, duration: .42, ease: 'power3.out' }, CUES.impact)
     .to(s, { wave: 1, duration: .82, ease: 'power2.out' }, CUES.impact)
     .to(s, { shutter: 1, shell: 1.5, spin: 23, duration: .58, ease: 'power4.out' }, CUES.impact)
     .to(s, { power: .42, duration: 1.7 }, 7.95)
     .call(() => audio?.cue('eject'), [], CUES.eject)
-    .set(s, { winner: 1, formation: .001, ws: .34, wz: .45, wry: -1.25, wrz: -.32 }, CUES.eject)
-    .to(s, { formation: 1, duration: 2.55, ease: 'power3.out' }, CUES.eject)
     .to(s, { wx: 2.45, wy: .72, wz: 9.25, ws: .9, wry: 2.15, wrz: .42, duration: .57, ease: 'power2.in' }, CUES.eject)
 
     // Beat 6: follow rather than cut. The single card follows its hero arc while ensemble modes
-    // use the same camera path as their formation fans outward and settles.
+    // keep expanding on the same formation value and settle into a readable card-only result.
     .call(() => { s.shot = 4 }, [], CUES.chase)
     .to(s, { cx: 3.55, cy: 1.25, cz: 12.55, tx: 1.35, ty: .32, tz: 5.1, fov: 47, duration: .52, ease: 'power2.out' }, CUES.chase)
     .to(s, { wx: -1.35, wy: .3, wz: 5.65, wry: -2.85, wrz: .18, duration: .72, ease: 'power2.out' }, CUES.chase)
@@ -81,7 +84,7 @@ export function directDraw(s: CinematicState, reduced: boolean, audio: DrawAudio
     .call(() => audio?.cue('awaken'), [], CUES.awaken)
     .to(s, { awaken: 1, duration: 1.45, ease: 'power2.inOut' }, CUES.awaken)
     .to(s, { burst: 0, duration: 2.8 }, 9)
-    .to(s, { readable: 1, duration: .55 }, 11.55)
+    .to(s, { readable: 1, duration: .72, ease: 'power1.out' }, 11.4)
     .call(() => { phase('reveal'); audio?.cue('reveal'); reveal() }, [], CUES.readable)
     .call(() => { s.running = false; phase('complete'); finish() }, [], CUES.end)
   return tl
