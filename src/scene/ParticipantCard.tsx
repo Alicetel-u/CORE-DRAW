@@ -8,7 +8,38 @@ import { hologram, identity, nameTexture, plate } from './design'
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
 
-export function ParticipantCard({ participant, index, resultIndex, total, revealTotal, isWinner, mode, cinematic: s, portrait, groupIndex = 0, groupPosition = 0, groupSize = 1, groupCount = 1, maxGroupSize = 1 }: {
+function resultNumberTexture(number: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')!
+  ctx.clearRect(0, 0, 512, 512)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  const text = String(number)
+  const size = text.length >= 2 ? 300 : 360
+  ctx.font = `900 ${size}px "Noto Sans JP", sans-serif`
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = '#5a4100'
+  ctx.lineWidth = 22
+  ctx.shadowColor = 'rgba(255,224,112,.55)'
+  ctx.shadowBlur = 34
+  ctx.strokeText(text, 256, 266)
+  ctx.fillStyle = '#fff2a8'
+  ctx.fillText(text, 256, 266)
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'
+  ctx.lineWidth = 4
+  ctx.strokeText(text, 256, 266)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
+export function ParticipantCard({ participant, index, resultIndex, total, revealTotal, isWinner, mode, cinematic: s, portrait, revealed, groupIndex = 0, groupPosition = 0, groupSize = 1, groupCount = 1, maxGroupSize = 1 }: {
   participant: Participant
   index: number
   resultIndex: number
@@ -18,6 +49,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
   mode: DrawMode
   cinematic: CinematicState
   portrait: boolean
+  revealed: boolean
   groupIndex?: number
   groupPosition?: number
   groupSize?: number
@@ -41,6 +73,13 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     return { kicker: `TEAM ${String(groupIndex + 1).padStart(2, '0')}`, number: groupPosition + 1, footer: 'GROUPING / MEMBER' }
   }, [mode, resultIndex, groupIndex, groupPosition])
 
+  const resultMarkNumber = mode === 'grouping'
+    ? groupIndex + 1
+    : mode === 'ordered_list' || mode === 'shuffle_only' || mode === 'top_n_ordered'
+      ? resultIndex + 1
+      : null
+  const showResultNumber = revealed && resultMarkNumber !== null
+
   const resources = useMemo(() => {
     const color = new THREE.Color().setHSL(design.hue, .46, .64)
     return {
@@ -54,8 +93,9 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       corner: plate(.36, .82, .1, .14),
       shader: hologram(color, design.seed),
       texture: nameTexture(participant.name, cardCopy.number, cardCopy.kicker, cardCopy.footer),
+      resultNumber: resultMarkNumber === null ? null : resultNumberTexture(resultMarkNumber),
     }
-  }, [design, participant.name, cardCopy])
+  }, [design, participant.name, cardCopy, resultMarkNumber])
 
   useEffect(() => () => {
     resources.body.dispose()
@@ -64,6 +104,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     resources.corner.dispose()
     resources.shader.dispose()
     resources.texture.dispose()
+    resources.resultNumber?.dispose()
   }, [resources])
 
   useFrame(({ clock }) => {
@@ -140,11 +181,15 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     <mesh position={[0, -1.48, .03]}><boxGeometry args={[1.58, .11, .27]} /><meshPhysicalMaterial color="#66727b" metalness={.9} roughness={.22} envMapIntensity={1.4} /></mesh>
     <mesh geometry={resources.glass} position={[0, 0, .12]}><meshPhysicalMaterial color="#111c24" metalness={.12} roughness={.1} clearcoat={1} clearcoatRoughness={.04} envMapIntensity={1.8} /></mesh>
     <mesh position={[0, 0, .235]} material={resources.shader}><planeGeometry args={[1.7, 2.72]} /></mesh>
-    <group ref={glyph} position={[0, .48, .31]}>
+    <group ref={glyph} position={[0, .48, .31]} visible={!showResultNumber}>
       <mesh><ringGeometry args={[.37, .4, design.sides]} /><meshStandardMaterial color="#e1e9ec" emissive={resources.color} emissiveIntensity={.28} metalness={.72} roughness={.22} /></mesh>
       <mesh rotation={[0, 0, Math.PI / design.sides]}><ringGeometry args={[.25, .272, design.sides]} /><meshStandardMaterial color="#8a99a1" emissive={resources.color} emissiveIntensity={.12} metalness={.86} roughness={.2} /></mesh>
       <mesh rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[.115, .115, .05]} /><meshStandardMaterial color="#f0ece1" metalness={.62} roughness={.18} /></mesh>
     </group>
+    {resources.resultNumber && <mesh position={[0, .5, .34]} visible={showResultNumber}>
+      <planeGeometry args={[1.08, 1.08]} />
+      <meshBasicMaterial map={resources.resultNumber} transparent depthWrite={false} toneMapped={false} />
+    </mesh>}
     <group ref={armor}>{[0, 1, 2, 3].map((i) => <group key={i}><mesh geometry={resources.corner}><meshPhysicalMaterial color="#929ca3" metalness={.93} roughness={.2} clearcoat={.22} envMapIntensity={1.4} /></mesh><mesh position={[0, 0, .16]}><boxGeometry args={[.045, .4, .045]} /><meshBasicMaterial color={resources.color} transparent opacity={.72} toneMapped={false} /></mesh></group>)}</group>
     <mesh position={[0, -.48, .315]}><planeGeometry args={[1.84, 1.08]} /><meshBasicMaterial ref={label} map={resources.texture} transparent opacity={0} depthWrite={false} toneMapped={false} /></mesh>
     <mesh position={[0, 1.12, .315]}><boxGeometry args={[.78, .022, .03]} /><meshStandardMaterial color="#d2dce0" emissive={resources.color} emissiveIntensity={.18} metalness={.7} /></mesh>
