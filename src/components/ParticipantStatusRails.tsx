@@ -41,19 +41,15 @@ export function ParticipantStatusRails({
   const half = Math.ceil(participants.length / 2)
   const leftParticipants = participants.slice(0, half)
   const rightParticipants = participants.slice(half)
-  const density = participants.length <= 12 ? 'small' : participants.length <= 24 ? 'medium' : 'large'
+  const density = participants.length <= 18 ? 'small' : participants.length <= 36 ? 'medium' : 'large'
 
   function statusText(participant: Participant) {
     const winner = currentWinnerIds.has(participant.id)
-    if (winner) {
-      const rank = resultOrder.get(participant.id)
-      return rank ? `${rank}位` : '当選'
-    }
     const order = resultOrder.get(participant.id)
-    if (order) return `${order}番`
+    if (winner && !order) return '当選'
     const group = resultGroups.get(participant.id)
     if (group) return `${group}組`
-    if (exclusionActive && excludedIdSet.has(participant.id)) return '除外'
+    if (exclusionActive && excludedIdSet.has(participant.id) && !winner) return '除外'
     return null
   }
 
@@ -62,8 +58,13 @@ export function ParticipantStatusRails({
     const winner = currentWinnerIds.has(participant.id)
     const excluded = exclusionActive && excludedIdSet.has(participant.id) && !winner
     const status = statusText(participant)
-    return <div className={`participant-status-tile ${winner ? 'is-winner' : ''} ${excluded ? 'is-excluded' : ''}`} key={participant.id}>
-      <span className="participant-status-number">{String(index + 1).padStart(2, '0')}</span>
+    const resultNumber = resultOrder.get(participant.id)
+    const showsResultNumber = typeof resultNumber === 'number'
+    const resultKind = mode === 'top_n_ordered' ? 'rank' : mode === 'ordered_list' || mode === 'shuffle_only' ? 'order' : null
+    const displayNumber = showsResultNumber ? String(resultNumber) : String(index + 1).padStart(2, '0')
+
+    return <div className={`participant-status-tile ${winner ? 'is-winner' : ''} ${excluded ? 'is-excluded' : ''} ${showsResultNumber ? 'has-result-number' : ''} ${resultKind ? `result-${resultKind}` : ''}`} key={participant.id}>
+      <span className="participant-status-number">{displayNumber}</span>
       <span className="participant-status-name">{participant.name}</span>
       {status && <span className="participant-status-badge">{status}</span>}
     </div>
