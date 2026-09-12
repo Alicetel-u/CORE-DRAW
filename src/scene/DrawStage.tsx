@@ -18,9 +18,14 @@ function CameraDirector({ cinematic: s, mode }: { cinematic: CinematicState; mod
     const portrait = size.width / size.height < .85
     const drift = !s.running && !s.winner && !s.reduced ? Math.sin(clock.elapsedTime * .15) * .055 : 0
     const shake = s.reduced ? 0 : s.impact
-    const portraitOffset = portrait ? (s.winner ? 2.7 : 3.8) : 0
-    const ensembleOffset = s.winner && mode !== 'single_winner' ? (portrait ? 4.2 : 3.2) : 0
-    cam.position.set(s.cx * (portrait ? .65 : 1) + Math.sin(s.time * 151) * shake * .065 + drift, s.cy + Math.sin(s.time * 113) * shake * .045, s.cz + portraitOffset + ensembleOffset)
+    const revealBlend = mode === 'single_winner' ? s.formation : s.formation
+    const portraitOffset = portrait ? THREE.MathUtils.lerp(3.8, 2.7, revealBlend) : 0
+    const ensembleOffset = mode !== 'single_winner' ? revealBlend * (portrait ? 4.2 : 3.2) : 0
+    cam.position.set(
+      s.cx * (portrait ? .65 : 1) + Math.sin(s.time * 151) * shake * .065 + drift,
+      s.cy + Math.sin(s.time * 113) * shake * .045,
+      s.cz + portraitOffset + ensembleOffset,
+    )
     target.set(s.tx, s.ty, s.tz)
     cam.up.set(Math.sin(s.roll), Math.cos(s.roll), 0)
     cam.lookAt(target)
