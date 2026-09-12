@@ -1,0 +1,6 @@
+/* v0.6.4: stop the small phase readout before the result takes over. */
+.phase-impact .phase-readout,
+.phase-reveal .phase-readout,
+.phase-complete .phase-readout{
+  display:none!important;
+}
