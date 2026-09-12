@@ -58,7 +58,7 @@ function PostFX({ cinematic: s }: { cinematic: CinematicState }) {
   return <EffectComposer multisampling={4}><Bloom ref={bloom} intensity={.38} luminanceThreshold={.88} mipmapBlur /><ChromaticAberration offset={offset} radialModulation modulationOffset={.15} /><Vignette offset={.15} darkness={.55} /></EffectComposer>
 }
 
-function Scene({ participants, winnerIds, groups, cinematic: s, quality, mode }: { participants: Participant[]; winnerIds: string[]; groups?: string[][]; cinematic: CinematicState; quality: QualityTier; mode: DrawMode }) {
+function Scene({ participants, winnerIds, groups, cinematic: s, quality, mode, revealed }: { participants: Participant[]; winnerIds: string[]; groups?: string[][]; cinematic: CinematicState; quality: QualityTier; mode: DrawMode; revealed: boolean }) {
   const size = useThree((v) => v.size)
   const portrait = size.width / size.height < .85
   const groupMeta = useMemo(() => {
@@ -87,7 +87,7 @@ function Scene({ participants, winnerIds, groups, cinematic: s, quality, mode }:
     <CoreReactor cinematic={s} />
     {participants.map((p, i) => {
       const meta = groupMeta.get(p.id)
-      return <ParticipantCard key={p.id} participant={p} index={i} resultIndex={mode === 'multi_winner' || mode === 'top_n_ordered' ? Math.max(0, winnerIds.indexOf(p.id)) : i} total={participants.length} revealTotal={Math.max(1, revealTotal)} isWinner={winnerIds.includes(p.id)} mode={mode} cinematic={s} portrait={portrait} groupIndex={meta?.groupIndex} groupPosition={meta?.groupPosition} groupSize={meta?.groupSize} groupCount={meta?.groupCount} maxGroupSize={Math.max(1, ...(groups ?? []).map(group => group.length))} />
+      return <ParticipantCard key={p.id} participant={p} index={i} resultIndex={mode === 'multi_winner' || mode === 'top_n_ordered' ? Math.max(0, winnerIds.indexOf(p.id)) : i} total={participants.length} revealTotal={Math.max(1, revealTotal)} isWinner={winnerIds.includes(p.id)} mode={mode} cinematic={s} portrait={portrait} revealed={revealed} groupIndex={meta?.groupIndex} groupPosition={meta?.groupPosition} groupSize={meta?.groupSize} groupCount={meta?.groupCount} maxGroupSize={Math.max(1, ...(groups ?? []).map(group => group.length))} />
     })}
     <CinematicVFX cinematic={s} quality={quality} />
     {quality !== 'lite' && <PostFX cinematic={s} />}
@@ -107,6 +107,6 @@ function Fallback({ winner }: { winner?: Participant }) {
 export function DrawStage({ participants, winnerIds, groups, cinematic, quality = 'high', revealed, mode }: { participants: Participant[]; winnerIds: string[]; groups?: string[][]; cinematic: CinematicState; quality?: QualityTier; revealed: boolean; mode: DrawMode }) {
   const winner = revealed ? participants.find((p) => p.id === winnerIds[0]) : undefined
   return <StageBoundary winner={winner}><Canvas dpr={quality === 'ultra' ? [1, 2] : quality === 'high' ? [1, 2] : [1, 1.25]} camera={{ position: [0, .65, 15.5], fov: 43, near: .1, far: 100 }} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }} fallback={<Fallback winner={winner} />}>
-    <Scene participants={participants} winnerIds={winnerIds} groups={groups} cinematic={cinematic} quality={quality} mode={mode} />
+    <Scene participants={participants} winnerIds={winnerIds} groups={groups} cinematic={cinematic} quality={quality} mode={mode} revealed={revealed} />
   </Canvas></StageBoundary>
 }
