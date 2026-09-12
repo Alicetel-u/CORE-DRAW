@@ -1,75 +1,183 @@
-/* v0.5.8: stage side windows show useful result/state information instead of decorative meters. */
-.result-hud{
+/* v0.5.9: participant status windows live around the cinematic stage. */
+.participant-status-board{
   position:absolute;
-  top:45%;
+  inset:82px 18px 112px;
   z-index:5;
-  width:190px;
-  min-height:108px;
-  padding:11px 12px 10px;
+  pointer-events:none;
+}
+.participant-status-rail{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  display:grid;
+  align-content:center;
+  gap:6px;
+  width:176px;
+}
+.participant-status-left{left:0}
+.participant-status-right{right:0}
+.participant-status-board.density-medium .participant-status-rail{
+  width:214px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+}
+.participant-status-board.density-large .participant-status-rail{
+  width:210px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:3px;
+}
+.participant-status-tile{
+  position:relative;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) auto;
+  align-items:center;
+  min-height:38px;
+  gap:7px;
+  padding:6px 7px;
+  overflow:hidden;
   background:linear-gradient(180deg,rgba(8,37,121,.94),rgba(4,22,86,.94));
   border:3px double #fff;
   border-radius:4px;
-  box-shadow:0 3px 0 #010a2f,inset 0 0 0 1px rgba(91,124,218,.7);
+  box-shadow:0 3px 0 #010a2f,inset 0 0 0 1px rgba(91,124,218,.66);
   color:#fff;
-  pointer-events:none;
+  transition:opacity .2s ease,filter .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease,transform .2s ease;
 }
-.result-hud-left{left:3%}
-.result-hud-right{right:3%}
-.result-hud-label{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  padding-bottom:7px;
-  margin-bottom:8px;
-  border-bottom:1px solid rgba(255,255,255,.34);
-  font:12px 'DotGothic16','Noto Sans JP',sans-serif;
-  color:#d9e4ff;
+.participant-status-number{
+  color:#b9c8ef;
+  font:11px/1 'DotGothic16','Noto Sans JP',sans-serif;
+  text-align:center;
 }
-.result-hud-label::before{content:'◆';color:var(--quest-yellow);font-size:10px}
-.result-hud-body{display:flex;flex-direction:column;gap:5px;min-width:0}
-.result-hud-primary{
-  display:block;
+.participant-status-name{
+  min-width:0;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  font:700 18px/1.25 'DotGothic16','Noto Sans JP',sans-serif;
-  color:var(--quest-yellow);
-  text-shadow:2px 2px 0 #00103f;
-}
-.result-hud-line{
-  display:block;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  font:13px/1.35 'DotGothic16','Noto Sans JP',sans-serif;
   color:#fff;
+  font:700 13px/1.1 'DotGothic16','Noto Sans JP',sans-serif;
+  text-shadow:1px 1px 0 #00103f;
 }
-.result-hud-muted{color:#bcc9ea;font-size:12px}
-.result-hud-status{
-  display:inline-flex;
-  align-items:center;
-  width:max-content;
-  max-width:100%;
-  padding:3px 6px;
-  border:1px solid rgba(255,230,111,.7);
-  background:rgba(50,37,6,.72);
+.participant-status-badge{
+  flex:0 0 auto;
+  padding:2px 4px;
+  border:1px solid rgba(255,255,255,.5);
+  background:rgba(1,12,55,.72);
+  color:#dfe8ff;
+  font:9px/1.1 'DotGothic16','Noto Sans JP',sans-serif;
+  white-space:nowrap;
+}
+.participant-status-tile.is-excluded{
+  opacity:.38;
+  filter:grayscale(1) saturate(.15);
+  background:linear-gradient(180deg,rgba(27,34,54,.96),rgba(14,18,31,.96));
+  border-color:#8590ad;
+  box-shadow:0 2px 0 #050812,inset 0 0 0 1px rgba(130,142,170,.25);
+}
+.participant-status-tile.is-excluded .participant-status-name,
+.participant-status-tile.is-excluded .participant-status-number{
+  color:#b7bdcb;
+  text-shadow:none;
+}
+.participant-status-tile.is-winner{
+  opacity:1;
+  filter:none;
+  transform:translateY(-1px) scale(1.025);
+  background:linear-gradient(180deg,rgba(83,63,8,.97),rgba(39,29,2,.97));
+  border-color:#fff;
+  box-shadow:0 3px 0 #4b3700,0 0 0 2px rgba(255,230,111,.78),0 0 22px rgba(255,230,111,.68),inset 0 0 18px rgba(255,230,111,.2);
+  animation:participantWinnerPulse 1.05s ease-in-out infinite;
+}
+.participant-status-tile.is-winner .participant-status-name,
+.participant-status-tile.is-winner .participant-status-number{
   color:var(--quest-yellow);
-  font:11px 'DotGothic16','Noto Sans JP',sans-serif;
 }
-.result-hud.waiting .result-hud-primary{color:#dce6ff;animation:hudWait 1.1s steps(2,end) infinite}
-.phase-reveal .result-hud,.phase-complete .result-hud{animation:hudReveal .34s ease-out both}
-@keyframes hudReveal{from{opacity:.35;transform:translateY(5px)}to{opacity:1;transform:none}}
-@keyframes hudWait{50%{opacity:.55}}
-.reduced .result-hud{animation:none!important}
+.participant-status-tile.is-winner .participant-status-badge{
+  border-color:var(--quest-yellow);
+  background:rgba(255,230,111,.14);
+  color:var(--quest-yellow);
+}
+.participant-status-board.density-medium .participant-status-tile{
+  grid-template-columns:22px minmax(0,1fr);
+  min-height:33px;
+  gap:4px;
+  padding:5px 5px;
+  border-width:2px;
+}
+.participant-status-board.density-medium .participant-status-badge{
+  position:absolute;
+  right:3px;
+  top:3px;
+  padding:1px 3px;
+  font-size:8px;
+}
+.participant-status-board.density-medium .participant-status-name{font-size:11px;padding-right:24px}
+.participant-status-board.density-medium .participant-status-number{font-size:9px}
+.participant-status-board.density-large .participant-status-tile{
+  grid-template-columns:20px minmax(0,1fr);
+  min-height:25px;
+  gap:3px;
+  padding:3px 4px;
+  border-width:2px;
+  border-radius:2px;
+  box-shadow:0 2px 0 #010a2f,inset 0 0 0 1px rgba(91,124,218,.5);
+}
+.participant-status-board.density-large .participant-status-name{font-size:9px;padding-right:20px}
+.participant-status-board.density-large .participant-status-number{font-size:8px}
+.participant-status-board.density-large .participant-status-badge{
+  position:absolute;
+  top:2px;
+  right:2px;
+  padding:1px 2px;
+  font-size:7px;
+}
+.participant-status-mobile-strip{display:none}
+@keyframes participantWinnerPulse{
+  0%,100%{box-shadow:0 3px 0 #4b3700,0 0 0 2px rgba(255,230,111,.7),0 0 17px rgba(255,230,111,.48),inset 0 0 18px rgba(255,230,111,.16)}
+  50%{box-shadow:0 3px 0 #4b3700,0 0 0 3px rgba(255,230,111,.96),0 0 29px rgba(255,230,111,.9),inset 0 0 24px rgba(255,230,111,.28)}
+}
+.reduced .participant-status-tile{animation:none!important;transition:none!important}
 
-@media(max-width:1100px){
-  .result-hud{width:168px;top:48%;padding:9px 10px;min-height:96px}
-  .result-hud-left{left:18px}.result-hud-right{right:18px}
-  .result-hud-primary{font-size:16px}.result-hud-line{font-size:12px}
+@media(max-width:1250px) and (min-width:701px){
+  .participant-status-board{inset-left:10px;inset-right:10px}
+  .participant-status-rail{width:150px}
+  .participant-status-board.density-medium .participant-status-rail,
+  .participant-status-board.density-large .participant-status-rail{width:182px}
+  .participant-status-name{font-size:11px}
 }
+
 @media(max-width:700px){
-  .result-hud{top:47%;width:calc(50% - 27px);min-height:88px;padding:8px 9px;border-width:2px}
-  .result-hud-left{left:18px}.result-hud-right{right:18px}
-  .result-hud-label{font-size:10px;margin-bottom:6px;padding-bottom:5px}
-  .result-hud-primary{font-size:14px}.result-hud-line,.result-hud-muted{font-size:10px}.result-hud-status{font-size:9px;padding:2px 4px}
+  .participant-status-board{
+    inset:auto 8px 112px;
+    height:46px;
+    z-index:6;
+    pointer-events:auto;
+  }
+  .participant-status-rail{display:none}
+  .participant-status-mobile-strip{
+    display:flex;
+    gap:5px;
+    width:100%;
+    overflow-x:auto;
+    padding:3px 2px 8px;
+    scrollbar-width:none;
+    overscroll-behavior-x:contain;
+  }
+  .participant-status-mobile-strip::-webkit-scrollbar{display:none}
+  .participant-status-mobile-strip .participant-status-tile{
+    flex:0 0 auto;
+    width:118px;
+    min-height:36px;
+    grid-template-columns:22px minmax(0,1fr);
+    gap:4px;
+    padding:5px;
+    border-width:2px;
+  }
+  .participant-status-mobile-strip .participant-status-name{font-size:11px;padding-right:24px}
+  .participant-status-mobile-strip .participant-status-number{font-size:9px}
+  .participant-status-mobile-strip .participant-status-badge{
+    position:absolute;
+    right:3px;
+    top:3px;
+    padding:1px 3px;
+    font-size:8px;
+  }
 }
