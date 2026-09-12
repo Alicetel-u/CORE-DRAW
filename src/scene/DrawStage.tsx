@@ -9,10 +9,17 @@ import type { CinematicState } from '../core/cinematic'
 import { CoreReactor } from './CoreReactor'
 import { ParticipantCard } from './ParticipantCard'
 import { CinematicVFX } from './CinematicVFX'
+import { SummoningPortal } from './SummoningPortal'
 
 function CameraDirector({ cinematic: s, mode }: { cinematic: CinematicState; mode: DrawMode }) {
   const { size } = useThree()
   const target = useMemo(() => new THREE.Vector3(), [])
+  const cameraPath = useMemo(() => new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,.65,15.5), new THREE.Vector3(1.3,.9,13.4),
+    new THREE.Vector3(1.8,.6,11.8), new THREE.Vector3(.6,.25,10.8),
+    new THREE.Vector3(0,.2,11.5), new THREE.Vector3(0,.25,12.55),
+  ], false, 'catmullrom', .3), [])
+  const cameraPosition = useMemo(() => new THREE.Vector3(), [])
   useFrame(({ camera, clock, gl }) => {
     const cam = camera as THREE.PerspectiveCamera
     const portrait = size.width / size.height < .85
@@ -21,12 +28,14 @@ function CameraDirector({ cinematic: s, mode }: { cinematic: CinematicState; mod
     const revealBlend = s.formation
     const portraitOffset = portrait ? THREE.MathUtils.lerp(3.8, 2.45, revealBlend) : 0
     const ensembleOffset = mode !== 'single_winner' ? revealBlend * (portrait ? 2.8 : 1.65) : 0
+    const travel = s.reduced ? s.formation : THREE.MathUtils.smoothstep(s.time / 11, 0, 1)
+    cameraPath.getPoint(travel, cameraPosition)
     cam.position.set(
-      s.cx * (portrait ? .65 : 1) + Math.sin(s.time * 151) * shake * .065 + drift,
-      s.cy + Math.sin(s.time * 113) * shake * .045,
-      s.cz + portraitOffset + ensembleOffset,
+      cameraPosition.x * (portrait ? .65 : 1) + Math.sin(s.time * 151) * shake * .035 + drift,
+      cameraPosition.y + Math.sin(s.time * 113) * shake * .025,
+      cameraPosition.z + portraitOffset + ensembleOffset,
     )
-    target.set(s.tx, s.ty, s.tz)
+    target.set(0, .1 * revealBlend, 3.2 * revealBlend)
     cam.up.set(Math.sin(s.roll), Math.cos(s.roll), 0)
     cam.lookAt(target)
     const fov = s.fov + (portrait ? 6 : 0)
@@ -46,7 +55,7 @@ function PostFX({ cinematic: s }: { cinematic: CinematicState }) {
     if (bloom.current) bloom.current.intensity = .38 + s.impact * 2.3 + s.awaken * .16
     offset.set(s.impact * .005, s.impact * .0015)
   })
-  return <EffectComposer multisampling={0}><Bloom ref={bloom} intensity={.38} luminanceThreshold={.88} mipmapBlur /><ChromaticAberration offset={offset} radialModulation modulationOffset={.15} /><Vignette offset={.15} darkness={.55} /></EffectComposer>
+  return <EffectComposer multisampling={4}><Bloom ref={bloom} intensity={.38} luminanceThreshold={.88} mipmapBlur /><ChromaticAberration offset={offset} radialModulation modulationOffset={.15} /><Vignette offset={.15} darkness={.55} /></EffectComposer>
 }
 
 function Scene({ participants, winnerIds, groups, cinematic: s, quality, mode }: { participants: Participant[]; winnerIds: string[]; groups?: string[][]; cinematic: CinematicState; quality: QualityTier; mode: DrawMode }) {
@@ -74,10 +83,11 @@ function Scene({ participants, winnerIds, groups, cinematic: s, quality, mode }:
       <Lightformer position={[-4, 0, 2]} rotation={[0, Math.PI / 2, 0]} scale={[2.5, 7, 1]} intensity={3} color="#88a8ba" />
       <Lightformer position={[4, -2, 1]} rotation={[0, -Math.PI / 2, 0]} scale={[2.5, 4, 1]} intensity={2.5} color="#d6b88c" />
     </Environment>
+    <SummoningPortal cinematic={s} quality={quality} />
     <CoreReactor cinematic={s} />
     {participants.map((p, i) => {
       const meta = groupMeta.get(p.id)
-      return <ParticipantCard key={p.id} participant={p} index={i} resultIndex={i} total={participants.length} revealTotal={Math.max(1, revealTotal)} isWinner={winnerIds.includes(p.id)} mode={mode} cinematic={s} portrait={portrait} groupIndex={meta?.groupIndex} groupPosition={meta?.groupPosition} groupSize={meta?.groupSize} groupCount={meta?.groupCount} />
+      return <ParticipantCard key={p.id} participant={p} index={i} resultIndex={mode === 'multi_winner' || mode === 'top_n_ordered' ? Math.max(0, winnerIds.indexOf(p.id)) : i} total={participants.length} revealTotal={Math.max(1, revealTotal)} isWinner={winnerIds.includes(p.id)} mode={mode} cinematic={s} portrait={portrait} groupIndex={meta?.groupIndex} groupPosition={meta?.groupPosition} groupSize={meta?.groupSize} groupCount={meta?.groupCount} maxGroupSize={Math.max(1, ...(groups ?? []).map(group => group.length))} />
     })}
     <CinematicVFX cinematic={s} quality={quality} />
     {quality !== 'lite' && <PostFX cinematic={s} />}
@@ -96,7 +106,7 @@ function Fallback({ winner }: { winner?: Participant }) {
 
 export function DrawStage({ participants, winnerIds, groups, cinematic, quality = 'high', revealed, mode }: { participants: Participant[]; winnerIds: string[]; groups?: string[][]; cinematic: CinematicState; quality?: QualityTier; revealed: boolean; mode: DrawMode }) {
   const winner = revealed ? participants.find((p) => p.id === winnerIds[0]) : undefined
-  return <StageBoundary winner={winner}><Canvas dpr={quality === 'ultra' ? [1, 2] : quality === 'high' ? [1, 1.5] : [.75, 1]} camera={{ position: [0, .65, 15.5], fov: 43, near: .1, far: 100 }} gl={{ antialias: quality === 'ultra', alpha: true, powerPreference: 'high-performance' }} fallback={<Fallback winner={winner} />}>
+  return <StageBoundary winner={winner}><Canvas dpr={quality === 'ultra' ? [1, 2] : quality === 'high' ? [1, 2] : [1, 1.25]} camera={{ position: [0, .65, 15.5], fov: 43, near: .1, far: 100 }} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }} fallback={<Fallback winner={winner} />}>
     <Scene participants={participants} winnerIds={winnerIds} groups={groups} cinematic={cinematic} quality={quality} mode={mode} />
   </Canvas></StageBoundary>
 }

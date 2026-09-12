@@ -3,12 +3,12 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { DrawMode, Participant } from '../core/types'
 import type { CinematicState } from '../core/cinematic'
+import { resultLayout } from './resultLayout'
 import { hologram, identity, nameTexture, plate } from './design'
 
-const GOLDEN_ANGLE = 2.399963229728653
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
 
-export function ParticipantCard({ participant, index, resultIndex, total, revealTotal, isWinner, mode, cinematic: s, portrait, groupIndex = 0, groupPosition = 0, groupSize = 1, groupCount = 1 }: {
+export function ParticipantCard({ participant, index, resultIndex, total, revealTotal, isWinner, mode, cinematic: s, portrait, groupIndex = 0, groupPosition = 0, groupSize = 1, groupCount = 1, maxGroupSize = 1 }: {
   participant: Participant
   index: number
   resultIndex: number
@@ -21,6 +21,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
   groupIndex?: number
   groupPosition?: number
   groupSize?: number
+  maxGroupSize?: number
   groupCount?: number
 }) {
   const root = useRef<THREE.Group>(null)
@@ -71,72 +72,25 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     const ensembleReveal = mode === 'ordered_list' || mode === 'shuffle_only' || mode === 'grouping'
     const targetReveal = isWinner || ensembleReveal
     const hero = targetReveal && s.winner > 0
-    node.visible = hero || s.entries > .01
+    node.visible = hero ? s.formation > .0001 : s.entries > .01 && s.winner === 0
     if (!node.visible) return
     const idle = s.running || s.winner > 0 || s.reduced ? 0 : clock.elapsedTime * .045
 
     if (hero) {
       if (mode === 'single_winner') {
-        node.position.set(s.wx, s.wy, s.wz)
-        node.rotation.set(s.wrx, s.wry, s.wrz)
-        node.scale.setScalar(s.ws)
-      } else {
-        const count = Math.max(1, revealTotal)
-        const normalizedIndex = count <= 1 ? 0 : Math.min(resultIndex, count - 1) / (count - 1)
-        const delay = normalizedIndex * .085
-        const t = clamp01((s.formation - delay) / Math.max(.001, 1 - delay))
+        const t = clamp01(s.formation)
         const arc = Math.sin(t * Math.PI)
-        const launchAngle = resultIndex * GOLDEN_ANGLE + groupIndex * .31
-        let finalX = 0
-        let finalY = 0
-        let finalScale = .48
-        let finalRz = 0
+        node.position.set(arc * .6, .1 * t + arc * .2, 2.1 + 1.1 * t + arc * .7)
+        node.rotation.set(arc * -.08, arc * .32, arc * -.08)
+        node.scale.setScalar(t)
+      } else {
+        const target = resultLayout(resultIndex, Math.max(1, revealTotal), portrait, mode === 'grouping', groupIndex, groupPosition, groupCount, maxGroupSize)
+        const t = clamp01(s.formation)
+        // Shared depth, no crossing arcs; card size and cell spacing grow together.
+        node.position.set(target.x * t, target.y * t, 2.1 + 1.1 * t)
+        node.rotation.set(0, 0, 0)
+        node.scale.setScalar(target.scale * t)
 
-        if (mode === 'grouping') {
-          const spacingX = portrait ? 1.7 : Math.max(2.25, 3.1 - Math.max(0, groupCount - 2) * .25)
-          const spacingY = portrait ? 1.25 : 1.55
-          finalX = (groupIndex - (groupCount - 1) / 2) * spacingX
-          finalY = ((groupSize - 1) / 2 - groupPosition) * spacingY
-          finalScale = Math.max(.13, Math.min(
-            portrait ? .54 : .7,
-            (portrait ? 4.4 : 8.8) / Math.max(2, groupCount * 2.05),
-            (portrait ? 5.3 : 6.8) / Math.max(2, groupSize * 2.25),
-          ))
-        } else {
-          const highlightMode = mode === 'multi_winner' || mode === 'top_n_ordered'
-          const maxCols = portrait ? (highlightMode ? 2 : 3) : (highlightMode ? 4 : 5)
-          const cols = Math.min(maxCols, count)
-          const rows = Math.ceil(count / cols)
-          const col = resultIndex % cols
-          const row = Math.floor(resultIndex / cols)
-          const spacingX = portrait ? 1.45 : (highlightMode ? 2.45 : 1.95)
-          const spacingY = portrait ? 1.7 : (highlightMode ? 2.05 : 1.9)
-          finalX = (col - (cols - 1) / 2) * spacingX
-          finalY = ((rows - 1) / 2 - row) * spacingY
-          const limit = highlightMode ? (portrait ? .7 : .92) : (portrait ? .48 : .62)
-          finalScale = Math.max(.12, Math.min(
-            limit,
-            (portrait ? 4.4 : 9.2) / Math.max(2, cols * 2.05),
-            (portrait ? 5.6 : 7.1) / Math.max(2, rows * 2.55),
-          ))
-          finalRz = mode === 'top_n_ordered' ? (col - (cols - 1) / 2) * -.035 : 0
-        }
-
-        const curveX = Math.cos(launchAngle) * arc * (portrait ? .5 : .78)
-        const curveY = Math.sin(launchAngle) * arc * (portrait ? .42 : .62)
-        const curveZ = arc * (portrait ? 1.05 : 1.55)
-        node.position.set(
-          finalX * t + curveX,
-          finalY * t + curveY,
-          THREE.MathUtils.lerp(.38, 3.2 + resultIndex * .002, t) + curveZ,
-        )
-        node.rotation.set(
-          THREE.MathUtils.lerp((resultIndex % 3 - 1) * .34, 0, t),
-          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * 1.08, 0, t),
-          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * .28, finalRz, t),
-        )
-        const scale = THREE.MathUtils.lerp(.008, finalScale, t) * (1 + arc * .1)
-        node.scale.setScalar(scale)
       }
     } else {
       const a = index / total * Math.PI * 2 + s.orbit + idle
@@ -151,7 +105,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     const cardReadability = mode === 'single_winner'
       ? s.readable
       : Math.max(s.readable, clamp01((s.formation - .7) / .3) * .94)
-    resources.shader.uniforms.uTime.value = s.running ? s.time : clock.elapsedTime * .22
+    resources.shader.uniforms.uTime.value = s.reduced ? 0 : clock.elapsedTime * .22
     resources.shader.uniforms.uAwaken.value = awakening
     if (frame.current) {
       frame.current.color.copy(resources.steel).lerp(resources.goldMetal, awakening)
@@ -167,7 +121,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       part.rotation.z = x * y * awakening * .2
     })
     if (halo.current) {
-      halo.current.visible = awakening > .01 && (mode === 'single_winner' || isWinner)
+      halo.current.visible = awakening > .01 && mode === 'single_winner'
       halo.current.scale.setScalar(.65 + awakening * .7)
       halo.current.rotation.z = awakening * .5
     }
@@ -185,7 +139,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     <mesh position={[0, 1.48, .03]}><boxGeometry args={[1.58, .11, .27]} /><meshPhysicalMaterial color="#66727b" metalness={.9} roughness={.22} envMapIntensity={1.4} /></mesh>
     <mesh position={[0, -1.48, .03]}><boxGeometry args={[1.58, .11, .27]} /><meshPhysicalMaterial color="#66727b" metalness={.9} roughness={.22} envMapIntensity={1.4} /></mesh>
     <mesh geometry={resources.glass} position={[0, 0, .12]}><meshPhysicalMaterial color="#111c24" metalness={.12} roughness={.1} clearcoat={1} clearcoatRoughness={.04} envMapIntensity={1.8} /></mesh>
-    <mesh position={[0, 0, .205]} material={resources.shader}><planeGeometry args={[1.7, 2.72]} /></mesh>
+    <mesh position={[0, 0, .235]} material={resources.shader}><planeGeometry args={[1.7, 2.72]} /></mesh>
     <group ref={glyph} position={[0, .48, .31]}>
       <mesh><ringGeometry args={[.37, .4, design.sides]} /><meshStandardMaterial color="#e1e9ec" emissive={resources.color} emissiveIntensity={.28} metalness={.72} roughness={.22} /></mesh>
       <mesh rotation={[0, 0, Math.PI / design.sides]}><ringGeometry args={[.25, .272, design.sides]} /><meshStandardMaterial color="#8a99a1" emissive={resources.color} emissiveIntensity={.12} metalness={.86} roughness={.2} /></mesh>
@@ -201,7 +155,7 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
       {[0, 1, 2].map((i) => <mesh key={i} position={[0, -.95 + i * .09, 0]}><boxGeometry args={[.5 - i * .12, .014, .025]} /><meshStandardMaterial color="#818b90" metalness={.82} roughness={.24} /></mesh>)}
     </group>
     <group ref={halo} position={[0, .15, -.34]} visible={false}>
-      <mesh><ringGeometry args={[1.45, 1.47, 96]} /><meshBasicMaterial color="#dfb86f" transparent opacity={.6} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+      <mesh><ringGeometry args={[1.45, 1.47, 192]} /><meshBasicMaterial color="#dfb86f" transparent opacity={.6} side={THREE.DoubleSide} toneMapped={false} /></mesh>
       <mesh rotation={[0, 0, .2]}><ringGeometry args={[1.57, 1.61, 6]} /><meshBasicMaterial color="#e3c085" transparent opacity={.24} side={THREE.DoubleSide} /></mesh>
       {Array.from({ length: 6 }, (_, i) => <mesh key={i} position={[Math.cos(i * Math.PI / 3) * 1.8, Math.sin(i * Math.PI / 3) * 1.8, 0]} rotation={[.2, i, .4]}><tetrahedronGeometry args={[.07]} /><meshStandardMaterial color="#edcd88" emissive="#b89445" emissiveIntensity={.2} metalness={.8} roughness={.2} /></mesh>)}
     </group>

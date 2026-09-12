@@ -35,56 +35,32 @@ export function directDraw(s: CinematicState, reduced: boolean, audio: DrawAudio
   }
 
   tl.to(s, { time: CUES.end, progress: 100, duration: CUES.end, ease: 'none' }, 0)
-    // Beat 1: establish the machine and move in slowly. Keep spatial continuity.
     .call(() => { phase('charging'); audio?.cue('charging') }, [], 0)
-    .to(s, { power: 1.15, shell: .18, shutter: .8, spin: 2.4, duration: 2.3, ease: 'power2.inOut' }, 0)
-    .to(s, { cx: 1.05, cy: .78, cz: 12.6, fov: 40, duration: 2.35, ease: 'power2.inOut' }, 0)
-
-    // Beat 2: enter the orbit without teleporting the camera. One broad sweep sells the space.
-    .call(() => { s.shot = 1; phase('mixing'); audio?.cue('mixing') }, [], CUES.orbit)
-    .to(s, { cx: -2.9, cy: 1.05, cz: 10.15, tx: -.2, ty: .05, fov: 47, roll: -.035, duration: 1.2, ease: 'sine.inOut' }, CUES.orbit)
-    .to(s, { cx: 3.15, cy: -.18, cz: 9.15, tx: .25, ty: -.05, roll: .035, duration: 1.5, ease: 'sine.inOut' }, CUES.orbit + 1.2)
-    .to(s, { orbit: 13, spin: 15, power: 2.1, duration: 2.7, ease: 'power1.in' }, CUES.orbit)
-
-    // Beat 3: collapse continuously into the CORE. Keep a microscopic trace of the entries
-    // so the next beat grows from the same spatial origin instead of appearing from nowhere.
-    .call(() => { s.shot = 2; phase('selection'); audio?.cue('selection') }, [], CUES.compression)
-    .to(s, { cx: .45, cy: .28, cz: 9.55, tx: 0, ty: 0, roll: 0, fov: 43, duration: .5, ease: 'power2.out' }, CUES.compression)
-    .to(s, { cx: 0, cy: .08, cz: 8.75, duration: 1.35, ease: 'power2.out' }, CUES.compression + .45)
-    .to(s, { absorption: 1, orbit: 20, spin: 21, duration: 1.45, ease: 'power2.in' }, CUES.compression)
-    .to(s, { entries: .012, duration: .24, ease: 'power1.in' }, 6.38)
-    .to(s, { shutter: .04, shell: .05, power: .055, duration: .38, ease: 'power1.inOut' }, 6.58)
-
-    // Beat 4: anticipation without a frozen frame. The camera and reactor keep creeping forward
-    // at a low constant velocity so the eye never reads this as a cut or stalled render.
-    .set(s, { silence: 1, shot: 3 }, CUES.silence)
-    .call(() => audio?.stop(), [], CUES.silence)
-    .to(s, { cx: -.12, cy: .015, cz: 8.38, tz: .18, spin: 22.35, orbit: 20.72, duration: CUES.impact - 6.58, ease: 'none' }, 6.58)
-
-    // Beat 5: the same cards grow out of the CORE on impact. Formation begins immediately,
-    // overlapping the impact, camera chase and material awakening instead of waiting for a cut.
+    .to(s, { power: 1.15, shell: .18, shutter: .8, duration: 2.4, ease: 'sine.inOut' }, 0)
+    // Continuous rotation bridges every narrative beat, including anticipation.
+    .to(s, { spin: 26, orbit: 21, duration: CUES.impact + 1.2, ease: 'sine.inOut' }, 0)
+    .call(() => { phase('mixing'); audio?.cue('mixing') }, [], CUES.orbit)
+    .to(s, { power: 2.1, duration: 2.7, ease: 'sine.inOut' }, CUES.orbit)
+    .call(() => { phase('selection'); audio?.cue('selection') }, [], CUES.compression)
+    .to(s, { absorption: 1, duration: 1.65, ease: 'sine.inOut' }, CUES.compression)
+    .to(s, { entries: 0, duration: .4, ease: 'sine.inOut' }, 6.35)
+    .to(s, { shutter: .08, shell: .05, power: .65, duration: .65, ease: 'sine.inOut' }, 6.55)
+    // Dim gently, keep the mechanism visible; never insert a black hold frame.
+    .to(s, { silence: .28, duration: .4, ease: 'sine.inOut' }, CUES.silence)
+    .to(s, { silence: 0, duration: .27, ease: 'sine.in' }, CUES.impact - .27)
     .call(() => { phase('impact'); audio?.cue('impact') }, [], CUES.impact)
-    .set(s, { silence: 0, impact: 1, burst: 1, power: 4, fov: 55, roll: .04,
-      winner: 1, formation: .001, ws: .05, wz: .42, wry: -1.25, wrz: -.32 }, CUES.impact)
-    .to(s, { formation: 1, duration: 3.0, ease: 'power1.out' }, CUES.impact)
-    .to(s, { impact: 0, fov: 43, roll: 0, duration: .42, ease: 'power3.out' }, CUES.impact)
-    .to(s, { wave: 1, duration: .82, ease: 'power2.out' }, CUES.impact)
-    .to(s, { shutter: 1, shell: 1.5, spin: 23, duration: .58, ease: 'power4.out' }, CUES.impact)
-    .to(s, { power: .42, duration: 1.7 }, 7.95)
+    .set(s, { winner: 1, burst: 1 }, CUES.impact)
+    .to(s, { impact: .65, power: 3.2, duration: .12, ease: 'sine.out' }, CUES.impact)
+    .to(s, { impact: 0, duration: .55, ease: 'sine.out' }, CUES.impact + .12)
+    .to(s, { formation: 1, duration: 3.3, ease: 'sine.inOut' }, CUES.impact)
+    .to(s, { wave: 1, duration: 1.1, ease: 'power2.out' }, CUES.impact)
+    .to(s, { shutter: 1, shell: 1.25, duration: .8, ease: 'sine.inOut' }, CUES.impact)
+    .to(s, { power: .42, duration: 2.2, ease: 'sine.inOut' }, CUES.impact + .12)
     .call(() => audio?.cue('eject'), [], CUES.eject)
-    .to(s, { wx: 2.45, wy: .72, wz: 9.25, ws: .9, wry: 2.15, wrz: .42, duration: .57, ease: 'power2.in' }, CUES.eject)
-
-    // Beat 6: follow rather than cut. The single card follows its hero arc while ensemble modes
-    // keep expanding on the same formation value and settle into a readable card-only result.
-    .call(() => { s.shot = 4 }, [], CUES.chase)
-    .to(s, { cx: 3.55, cy: 1.25, cz: 12.55, tx: 1.35, ty: .32, tz: 5.1, fov: 47, duration: .52, ease: 'power2.out' }, CUES.chase)
-    .to(s, { wx: -1.35, wy: .3, wz: 5.65, wry: -2.85, wrz: .18, duration: .72, ease: 'power2.out' }, CUES.chase)
-    .to(s, { wx: 0, wy: .1, wz: 3.2, ws: 1, wry: 0, wrx: 0, wrz: 0, duration: 1.55, ease: 'back.out(1.12)' }, CUES.chase + .62)
-    .to(s, { cx: 0, cy: .25, cz: 12.55, tx: 0, ty: .1, tz: 3.2, fov: 43, duration: 1.75, ease: 'power2.inOut' }, CUES.chase + .45)
     .call(() => audio?.cue('awaken'), [], CUES.awaken)
-    .to(s, { awaken: 1, duration: 1.45, ease: 'power2.inOut' }, CUES.awaken)
-    .to(s, { burst: 0, duration: 2.8 }, 9)
-    .to(s, { readable: 1, duration: .72, ease: 'power1.out' }, 11.4)
+    .to(s, { awaken: 1, duration: 1.45, ease: 'sine.inOut' }, CUES.awaken)
+    .to(s, { burst: 0, duration: 2.8, ease: 'sine.out' }, 9)
+    .to(s, { readable: 1, duration: .72, ease: 'sine.out' }, 11.4)
     .call(() => { phase('reveal'); audio?.cue('reveal'); reveal() }, [], CUES.readable)
     .call(() => { s.running = false; phase('complete'); finish() }, [], CUES.end)
   return tl
