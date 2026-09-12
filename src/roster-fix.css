@@ -1,14 +1,38 @@
-/* Roster cleanup + exclusion visibility. Keep the JRPG window, remove noisy decorations. */
+/* Roster cleanup + duplicate-rule visibility. Keep the JRPG window, remove noisy decorations. */
 .roster{
   scrollbar-width:none;
 }
 .roster::-webkit-scrollbar{
   display:none;
 }
+.roster-section-label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:4px 4px 3px;
+  padding:6px 7px;
+  border-bottom:1px solid rgba(255,255,255,.28);
+  color:#dfe8ff;
+  font-size:11px;
+  letter-spacing:.04em;
+}
+.roster-section-label b{
+  min-width:22px;
+  color:var(--quest-yellow);
+  font-weight:700;
+  text-align:right;
+}
+.roster-section-label.excluded-label{
+  margin-top:9px;
+  color:#8f9cc3;
+  border-color:rgba(255,255,255,.12);
+}
 .roster-row{
   position:relative;
+  display:flex;
+  align-items:center;
   gap:10px;
-  padding:9px 8px;
+  padding:8px 8px;
   border:0!important;
   background:transparent;
   font-size:15px;
@@ -42,22 +66,45 @@
   content:none!important;
   display:none!important;
 }
-.roster-row > span:nth-child(2){
+.roster-name{
   min-width:0;
   flex:1;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-
-/* Normal rows stay clean. Exclusion state is shown as a real badge instead of a tiny status dot. */
 .roster-row i{
   display:none!important;
 }
-.roster-row i.used{
-  display:inline-flex!important;
-  width:auto!important;
-  height:auto!important;
+.roster-row.chosen{
+  color:var(--quest-yellow);
+  background:rgba(255,230,111,.1);
+}
+.roster-row.chosen .avatar{
+  color:var(--quest-yellow);
+}
+.roster-row.excluded{
+  background:rgba(2,9,35,.58)!important;
+  opacity:.63;
+}
+.roster-row.excluded .avatar{
+  color:#69769d!important;
+}
+.roster-row.excluded .roster-name{
+  color:#8d99bd!important;
+  text-decoration:line-through 2px rgba(255,230,111,.68);
+  text-decoration-thickness:2px;
+}
+.roster-row.excluded.chosen{
+  opacity:.84;
+  background:rgba(255,230,111,.1)!important;
+}
+.roster-row.excluded.chosen .avatar,
+.roster-row.excluded.chosen .roster-name{
+  color:var(--quest-yellow)!important;
+}
+.exclude-badge{
+  display:inline-flex;
   flex:0 0 auto;
   align-items:center;
   justify-content:center;
@@ -65,49 +112,129 @@
   padding:3px 6px;
   border:1px solid rgba(255,230,111,.72);
   border-radius:2px;
-  background:rgba(50,37,6,.88)!important;
-  box-shadow:none!important;
+  background:rgba(50,37,6,.88);
   color:var(--quest-yellow);
-  font-style:normal;
   font-size:10px;
   line-height:1;
   letter-spacing:.04em;
-}
-.roster-row i.used::after{
-  content:'除外';
-}
-.roster-row:has(i.used){
-  background:rgba(3,12,48,.72)!important;
-  opacity:.62;
-}
-.roster-row:has(i.used) .avatar{
-  color:#7784ad!important;
-}
-.roster-row:has(i.used) > span:nth-child(2){
-  color:#9aa6ca!important;
-  text-decoration:line-through 2px rgba(255,230,111,.78);
-  text-decoration-thickness:2px;
-}
-.roster-row:has(i.used).chosen{
-  opacity:.78;
-  background:rgba(255,230,111,.09)!important;
-}
-.roster-row:has(i.used).chosen > span:nth-child(2),
-.roster-row:has(i.used).chosen .avatar{
-  color:var(--quest-yellow)!important;
+  text-decoration:none!important;
 }
 
-.roster-row.chosen{
-  color:var(--quest-yellow);
-  background:rgba(255,230,111,.08);
+/* Duplicate handling is a visible rule, not a mystery toggle. */
+.draw-rule-panel{
+  margin:0 0 11px;
+  padding:10px;
+  border:3px double rgba(255,255,255,.92);
+  border-radius:4px;
+  background:linear-gradient(180deg,rgba(9,39,128,.96),rgba(4,22,82,.96));
+  box-shadow:0 3px 0 #01092e,inset 0 0 0 1px rgba(93,126,218,.48);
 }
-.roster-row.chosen .avatar{
+.draw-rule-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+  color:#fff;
+  font-size:13px;
+}
+.draw-rule-heading small{
   color:var(--quest-yellow);
+  font-size:10px;
+  white-space:nowrap;
+}
+.rule-options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+}
+.rule-options button{
+  min-height:34px;
+  padding:6px 7px;
+  border:2px solid rgba(255,255,255,.55);
+  border-radius:2px;
+  background:#03144f;
+  color:#cad6f8;
+  font-size:12px;
+}
+.rule-options button:hover:not(:disabled){
+  background:#123a9c;
+  color:#fff;
+}
+.rule-options button.active{
+  border-color:#fff;
+  background:#1747b5;
+  color:var(--quest-yellow);
+  box-shadow:inset 0 0 0 1px rgba(255,230,111,.25);
+}
+.rule-options button.active::before{
+  content:'▶ ';
+}
+.rule-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin:8px 0 5px;
+}
+.rule-stats span{
+  padding:6px 7px;
+  background:rgba(1,10,47,.56);
+  color:#d9e3ff;
+  font-size:11px;
+  text-align:center;
+}
+.rule-stats b{
+  color:var(--quest-yellow);
+  font-size:15px;
+}
+.draw-rule-panel p{
+  margin:6px 1px 8px!important;
+  color:#cdd9fa!important;
+  font-size:10px!important;
+  line-height:1.55!important;
+  text-align:left!important;
+}
+.reset-exclusions{
+  width:100%;
+  min-height:32px;
+  padding:5px 8px;
+  border:2px solid rgba(255,255,255,.62);
+  border-radius:2px;
+  background:#061a61;
+  color:#fff;
+  font-size:11px;
+}
+.reset-exclusions:hover:not(:disabled){
+  background:#153b9d;
+  color:var(--quest-yellow);
+}
+.reset-exclusions:disabled{
+  opacity:.36;
+}
+.draw-rule-panel.rule-disabled{
+  opacity:.58;
+}
+.draw-rule-panel .rule-note{
+  margin:0!important;
+  color:#b9c6e9!important;
+}
+.cycle-reset-launch{
+  background:linear-gradient(180deg,#725710,#493500)!important;
+  color:#fff8d3!important;
+  border-color:#fff2b0!important;
+}
+.cycle-reset-launch:hover:not(:disabled){
+  background:linear-gradient(180deg,#92731c,#634b06)!important;
+  color:#fff!important;
 }
 
 @media(max-width:700px){
+  .roster-section-label{
+    grid-column:1/-1;
+    margin-top:4px;
+  }
   .roster-row{
-    padding:8px 6px;
+    padding:7px 6px;
     font-size:14px;
   }
   .avatar{
@@ -115,8 +242,26 @@
     flex-basis:25px;
     font-size:12px!important;
   }
-  .roster-row i.used{
+  .exclude-badge{
     padding:3px 5px;
     font-size:9px;
+  }
+  .draw-rule-panel{
+    margin-bottom:9px;
+    padding:8px;
+  }
+  .draw-rule-heading{
+    margin-bottom:6px;
+    font-size:12px;
+  }
+  .rule-options button{
+    min-height:32px;
+    font-size:11px;
+  }
+  .rule-stats{
+    margin:6px 0 4px;
+  }
+  .draw-rule-panel p{
+    display:none;
   }
 }
