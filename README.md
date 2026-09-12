@@ -26,19 +26,20 @@ The product is **not a full game**. The draw logic stays intentionally small whi
 - react-postprocessing for Bloom / vignette / impact treatment
 - WebGL2-first production target
 
-## Current starter scene
+## Current experience
 
-The repository includes a deliberately simple visual prototype:
+CORE-DRAW v0.4.0 exposes all six planned draw modes in the application UI:
 
-- central `CoreReactor`
-- generated participant cards
-- 12 demo participants
-- deterministic/replayable draw resolver
-- cinematic phase state machine
-- HIGH / ULTRA / LITE quality presets
-- local single-winner preview
+- `single_winner` — one winner
+- `multi_winner` — configurable number of winners
+- `ordered_list` — full randomized turn order
+- `top_n_ordered` — configurable ranked top-N
+- `grouping` — configurable random team grouping
+- `shuffle_only` — full randomized shuffle
 
-This is scaffolding, **not the final visual design**.
+The shared resolver stays deterministic/replayable. Result presentation is mode-aware: single winner keeps the hero-card reveal, multi/ranking modes fan selected cards into an ensemble result, ordered/shuffle modes form readable result arrays, and grouping splits entries into team columns. The readable DOM result overlay remains available even when many 3D cards are on screen.
+
+The current cinematic timeline is still a shared CORE language. Future visual passes can make each mode more radically distinct without changing the draw contracts or fairness boundary.
 
 ## Local development
 
@@ -64,10 +65,12 @@ src/
   data/
     demoParticipants.ts
   scene/
-    DrawStage.tsx     renderer composition
-    CoreReactor.tsx   placeholder draw device
+    DrawStage.tsx     renderer composition + mode-aware staging
+    CoreReactor.tsx   central draw device
     ParticipantCard.tsx
-  App.tsx             demo orchestration + GSAP timeline
+    CinematicVFX.tsx
+  App.tsx             mode orchestration + result UI + GSAP timeline
+  modes.css           multi-mode controls and result presentation
 ```
 
 ## Critical production rule
@@ -99,25 +102,21 @@ The project spends GPU budget on a short cinematic, not on game systems. Prefer:
 
 Avoid building physics, navigation, collision systems, world simulation or other game-engine features unless a visual beat truly needs them.
 
-## Next implementation target
-
-Astra should turn the current scaffold into the first production-quality **single-winner cinematic** before adding every draw mode. Finish one polished 10–20 second sequence, validate desktop/mobile performance, then reuse that visual language for ranking and team-grouping sequences.
-
-See [`ASTRA.md`](./ASTRA.md) before major implementation work.
-
 ## Cinematic experience (September 2026)
 
-The single-winner experience now includes an orbital reactor, animated entry shards,
-phase-directed camera movement, a gold winner reveal, and procedural Web Audio cues.
-The sequence lasts approximately 11 seconds. Reduced-motion mode reveals in one second.
+The draw experience includes an orbital reactor, animated entry shards, phase-directed camera movement, impact treatment, procedural Web Audio cues, and mode-aware result staging. The base sequence lasts approximately 14 seconds. Reduced-motion mode reveals in about one second.
 
 - Edit 2–50 participant names in the left panel (one per line, up to 40 characters).
+- Switch between all six draw modes from the mode selector.
+- Configure winner count for multi-winner and top-N modes.
+- Configure team count for grouping mode.
 - Participants and the latest 20 results are saved locally when browser storage permits.
-- Optionally exclude recent winners. Editing the roster starts a new history.
+- Optionally exclude recent winners in winner-based modes.
 - Replay plays the existing result without resolving a new draw or adding history.
 - Sound, full-screen, reduced motion, and LITE/HIGH/ULTRA rendering controls are available.
 - LITE disables post-processing; WebGL failures fall back to a 2D core and readable result.
 - All scene geometry and audio are procedural. Google Fonts are optional with system fallbacks.
 
-This is a local event tool. The backend/persisted audit boundary above still applies to
-server-authoritative or regulated use. Local history is a convenience, not an audit log.
+This is a local event tool. The backend/persisted audit boundary above still applies to server-authoritative or regulated use. Local history is a convenience, not an audit log.
+
+See [`ASTRA.md`](./ASTRA.md) before major implementation work.
