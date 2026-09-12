@@ -25,3 +25,16 @@ export function createDemoParticipants(): Participant[] {
 }
 
 export const demoParticipants: Participant[] = createDemoParticipants()
+
+try {
+  const stored = JSON.parse(localStorage.getItem('core-participants') ?? 'null') as Participant[] | null
+  const legacyDefaults = Array.isArray(stored)
+    && stored.length === 12
+    && stored.every((participant, index) => participant?.id === `demo-${index + 1}` && /^PLAYER \d{2}$/.test(participant?.name ?? ''))
+
+  if (legacyDefaults) {
+    localStorage.setItem('core-participants', JSON.stringify(demoParticipants))
+  }
+} catch {
+  // Keep defaults usable when storage is unavailable.
+}
