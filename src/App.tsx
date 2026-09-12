@@ -7,7 +7,7 @@ import type { DrawMode, DrawPhase, DrawResult, Participant, QualityTier } from '
 import { demoParticipants } from './data/demoParticipants'
 import { DrawStage } from './scene/DrawStage'
 
-const APP_VERSION = 'v0.5.7'
+const APP_VERSION = 'v0.5.8'
 
 type Panel = 'participants' | 'history' | 'modes' | null
 type HistoryEntry = {
@@ -210,13 +210,12 @@ export default function App() {
     setResult(next)
     setProgress(0)
 
-    if (!replay && noDuplicates && (next.mode === 'single_winner' || next.mode === 'multi_winner' || next.mode === 'top_n_ordered')) {
-      const nextExcluded = exclusionIds(next)
-      setExcludedIds((current) => Array.from(new Set([...current, ...nextExcluded])))
-    }
-
     timeline.current = directDraw(cinematic.current, reduced, audio.current, setPhase, () => {
       if (!replay) {
+        if (noDuplicates && (next.mode === 'single_winner' || next.mode === 'multi_winner' || next.mode === 'top_n_ordered')) {
+          const nextExcluded = exclusionIds(next)
+          setExcludedIds((current) => Array.from(new Set([...current, ...nextExcluded])))
+        }
         setHistory((h) => [{
           id: next.drawId,
           mode: next.mode,
@@ -263,6 +262,36 @@ export default function App() {
   const targetUnit = mode === 'grouping' ? '組' : '人'
   const rosterCandidates = noDuplicates && exclusionApplies ? candidateParticipants : participants
   const rosterExcluded = noDuplicates && exclusionApplies ? excludedParticipants : []
+  const resultWinnerNames = result ? namesFor(result.winnerIds, participants) : []
+  const resultOrderedNames = result ? namesFor(result.orderedIds, participants) : []
+  const leftHudTitle = mode === 'top_n_ordered' ? '今回の順位' : mode === 'ordered_list' ? '今回の順番' : mode === 'shuffle_only' ? '新しい順番' : mode === 'grouping' ? 'パーティー結果' : '今回の当選'
+
+  function leftHudLines() {
+    if (!result || !revealed) return []
+    if (result.mode === 'grouping') {
+      const groups = result.groups ?? []
+      const lines = groups.slice(0, 3).map((group, i) => `${i + 1}組　${group.length}人`)
+      if (groups.length > 3) lines.push(`ほか ${groups.length - 3}組`)
+      return lines
+    }
+    const names = result.mode === 'ordered_list' || result.mode === 'shuffle_only' ? resultOrderedNames : resultWinnerNames
+    const max = result.mode === 'single_winner' ? 1 : 3
+    const ranked = result.mode === 'top_n_ordered' || result.mode === 'ordered_list' || result.mode === 'shuffle_only'
+    const lines = names.slice(0, max).map((name, i) => ranked ? `${i + 1}　${name}` : name)
+    if (names.length > max) lines.push(`ほか ${names.length - max}人`)
+    return lines
+  }
+
+  const hudLines = leftHudLines()
+  const waitingForResult = busy && !revealed
+  const nextStatePrimary = !exclusionApplies
+    ? mode === 'grouping' ? `${safeGroupCount}組 / ${participants.length}人` : `参加 ${participants.length}人`
+    : waitingForResult ? '結果を待っています…'
+      : revealed && result
+        ? noDuplicates
+          ? resultWinnerNames.length === 1 ? `${resultWinnerNames[0]} → 除外済み` : `${resultWinnerNames.length}人 → 除外済み`
+          : '次回も全員が候補'
+        : noDuplicates ? `候補 ${eligible.length}人` : `全員 ${participants.length}人`
 
   function rosterRow(p: Participant, index: number, excluded = false) {
     const chosen = revealed && result?.winnerIds.includes(p.id)
@@ -318,8 +347,22 @@ export default function App() {
         <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>
         <div className="scene"><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></div>
         <div className="scene-vignette" />
-        <div className="orbit-label left-label"><span>くじの ちから</span><b>{busy ? 'ぐるぐる…' : 'じゅんび OK'}</b><div /></div>
-        <div className="orbit-label right-label"><span>すすみぐあい</span><b>{busy ? `${Math.round(progress)}%` : '100%'}</b><div /></div>
+
+        <div className={`result-hud result-hud-left ${waitingForResult ? 'waiting' : ''}`}>
+          <div className="result-hud-label">{leftHudTitle}</div>
+          <div className="result-hud-body">
+            {waitingForResult ? <span className="result-hud-primary">抽選中…</span> : revealed && hudLines.length > 0 ? hudLines.map((line, i) => <span className={i === 0 ? 'result-hud-primary' : 'result-hud-line'} key={`${line}-${i}`}>{line}</span>) : <><span className="result-hud-primary">まだ結果なし</span><span className="result-hud-line result-hud-muted">抽選するとここに表示</span></>}
+          </div>
+        </div>
+
+        <div className={`result-hud result-hud-right ${waitingForResult ? 'waiting' : ''}`}>
+          <div className="result-hud-label">次回の状態</div>
+          <div className="result-hud-body">
+            <span className="result-hud-primary">{nextStatePrimary}</span>
+            {exclusionApplies && noDuplicates ? <><span className="result-hud-line">候補 {eligible.length}人 / 除外 {activeExcludedCount}人</span>{revealed && result && resultWinnerNames.length > 0 && <span className="result-hud-status">当選者除外 ON</span>}</> : exclusionApplies ? <span className="result-hud-line result-hud-muted">毎回抽選</span> : <span className="result-hud-line result-hud-muted">全員参加モード</span>}
+          </div>
+        </div>
+
         <div className="stage-intro"><div className="eyebrow">ぼうけんの くじびき</div><h1>{cycleExhausted ? 'この周回は おしまい！' : revealed ? revealHeadlines[mode] : 'さあ くじを ひこう！'}</h1><p>{cycleExhausted ? '除外をリセットすると 全員が候補に戻ります。' : labels[phase]}</p></div>
         <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{cycleExhausted ? 'つぎの周回へ' : revealed ? 'けっかが でた！' : 'いつでも ひける！'}</>}</div>
         {revealed && result && <ResultOverlay result={result} participants={participants} />}
