@@ -1,4 +1,4 @@
-/* v0.5.1 roster cleanup: keep the JRPG window, remove noisy list decorations. */
+/* Roster cleanup + exclusion visibility. Keep the JRPG window, remove noisy decorations. */
 .roster{
   scrollbar-width:none;
 }
@@ -13,6 +13,7 @@
   background:transparent;
   font-size:15px;
   line-height:1.35;
+  transition:background .18s ease,opacity .18s ease;
 }
 .roster-row::before,
 .roster-row::after{
@@ -48,9 +49,54 @@
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+
+/* Normal rows stay clean. Exclusion state is shown as a real badge instead of a tiny status dot. */
 .roster-row i{
   display:none!important;
 }
+.roster-row i.used{
+  display:inline-flex!important;
+  width:auto!important;
+  height:auto!important;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  margin-left:auto;
+  padding:3px 6px;
+  border:1px solid rgba(255,230,111,.72);
+  border-radius:2px;
+  background:rgba(50,37,6,.88)!important;
+  box-shadow:none!important;
+  color:var(--quest-yellow);
+  font-style:normal;
+  font-size:10px;
+  line-height:1;
+  letter-spacing:.04em;
+}
+.roster-row i.used::after{
+  content:'除外';
+}
+.roster-row:has(i.used){
+  background:rgba(3,12,48,.72)!important;
+  opacity:.62;
+}
+.roster-row:has(i.used) .avatar{
+  color:#7784ad!important;
+}
+.roster-row:has(i.used) > span:nth-child(2){
+  color:#9aa6ca!important;
+  text-decoration:line-through 2px rgba(255,230,111,.78);
+  text-decoration-thickness:2px;
+}
+.roster-row:has(i.used).chosen{
+  opacity:.78;
+  background:rgba(255,230,111,.09)!important;
+}
+.roster-row:has(i.used).chosen > span:nth-child(2),
+.roster-row:has(i.used).chosen .avatar{
+  color:var(--quest-yellow)!important;
+}
+
 .roster-row.chosen{
   color:var(--quest-yellow);
   background:rgba(255,230,111,.08);
@@ -68,5 +114,9 @@
     width:25px;
     flex-basis:25px;
     font-size:12px!important;
+  }
+  .roster-row i.used{
+    padding:3px 5px;
+    font-size:9px;
   }
 }
