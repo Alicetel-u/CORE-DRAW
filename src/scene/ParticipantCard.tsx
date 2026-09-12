@@ -5,6 +5,9 @@ import type { DrawMode, Participant } from '../core/types'
 import type { CinematicState } from '../core/cinematic'
 import { hologram, identity, nameTexture, plate } from './design'
 
+const GOLDEN_ANGLE = 2.399963229728653
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
+
 export function ParticipantCard({ participant, index, resultIndex, total, revealTotal, isWinner, mode, cinematic: s, portrait, groupIndex = 0, groupPosition = 0, groupSize = 1, groupCount = 1 }: {
   participant: Participant
   index: number
@@ -56,7 +59,8 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
     const node = root.current
     if (!node) return
     const ensembleReveal = mode === 'ordered_list' || mode === 'shuffle_only' || mode === 'grouping'
-    const hero = (isWinner || ensembleReveal) && s.winner > 0
+    const targetReveal = isWinner || ensembleReveal
+    const hero = targetReveal && s.winner > 0
     node.visible = hero || s.entries > .01
     if (!node.visible) return
     const idle = s.running || s.winner > 0 || s.reduced ? 0 : clock.elapsedTime * .045
@@ -66,33 +70,58 @@ export function ParticipantCard({ participant, index, resultIndex, total, reveal
         node.position.set(s.wx, s.wy, s.wz)
         node.rotation.set(s.wrx, s.wry, s.wrz)
         node.scale.setScalar(s.ws)
-      } else if (mode === 'grouping') {
-        const motion = Math.max(.12, Math.min(1, s.ws))
-        const spacingX = portrait ? 1.15 : 1.65
-        const spacingY = portrait ? .86 : 1.08
-        const x = (groupIndex - (groupCount - 1) / 2) * spacingX
-        const y = ((groupSize - 1) / 2 - groupPosition) * spacingY
-        const scale = Math.max(.1, Math.min(portrait ? .4 : .48, (portrait ? 2.8 : 5.3) / Math.max(2, groupCount * 1.6), 3.8 / Math.max(2, groupSize * 1.25)))
-        node.position.set(x * motion, y * motion, 3.2 + (1 - motion) * 4)
-        node.rotation.set(0, (1 - motion) * .7 * (groupIndex % 2 ? 1 : -1), 0)
-        node.scale.setScalar(scale * motion)
       } else {
         const count = Math.max(1, revealTotal)
-        const maxCols = portrait ? 4 : 7
-        const cols = mode === 'multi_winner' || mode === 'top_n_ordered' ? Math.min(maxCols, count) : Math.min(maxCols, Math.max(2, Math.ceil(Math.sqrt(count * (portrait ? .8 : 1.45)))))
-        const rows = Math.ceil(count / cols)
-        const col = resultIndex % cols
-        const row = Math.floor(resultIndex / cols)
-        const spacingX = portrait ? .92 : 1.22
-        const spacingY = portrait ? 1.2 : 1.45
-        const x = (col - (cols - 1) / 2) * spacingX
-        const y = ((rows - 1) / 2 - row) * spacingY
-        const limit = mode === 'multi_winner' || mode === 'top_n_ordered' ? .66 : .48
-        const scale = Math.max(.1, Math.min(limit, (portrait ? 3.1 : 6.4) / Math.max(2, cols * 1.9), 4.8 / Math.max(2, rows * 2.7)))
-        const motion = Math.max(.12, Math.min(1, s.ws))
-        node.position.set(x * motion, y * motion, 3.2 + (1 - motion) * 4 + resultIndex * .002)
-        node.rotation.set(0, (1 - motion) * .65 * (col % 2 ? 1 : -1), mode === 'top_n_ordered' ? (col - (cols - 1) / 2) * -.025 : 0)
-        node.scale.setScalar(scale * motion)
+        const normalizedIndex = count <= 1 ? 0 : Math.min(resultIndex, count - 1) / (count - 1)
+        const delay = normalizedIndex * .13
+        const t = clamp01((s.formation - delay) / Math.max(.001, 1 - delay))
+        const arc = Math.sin(t * Math.PI)
+        const launchAngle = resultIndex * GOLDEN_ANGLE + groupIndex * .37
+        let finalX = 0
+        let finalY = 0
+        let finalScale = .4
+        let finalRz = 0
+
+        if (mode === 'grouping') {
+          const spacingX = portrait ? 1.15 : 1.65
+          const spacingY = portrait ? .86 : 1.08
+          finalX = (groupIndex - (groupCount - 1) / 2) * spacingX
+          finalY = ((groupSize - 1) / 2 - groupPosition) * spacingY
+          finalScale = Math.max(.1, Math.min(portrait ? .4 : .48, (portrait ? 2.8 : 5.3) / Math.max(2, groupCount * 1.6), 3.8 / Math.max(2, groupSize * 1.25)))
+        } else {
+          const maxCols = portrait ? 4 : 7
+          const cols = mode === 'multi_winner' || mode === 'top_n_ordered'
+            ? Math.min(maxCols, count)
+            : Math.min(maxCols, Math.max(2, Math.ceil(Math.sqrt(count * (portrait ? .8 : 1.45)))))
+          const rows = Math.ceil(count / cols)
+          const col = resultIndex % cols
+          const row = Math.floor(resultIndex / cols)
+          const spacingX = portrait ? .92 : 1.22
+          const spacingY = portrait ? 1.2 : 1.45
+          finalX = (col - (cols - 1) / 2) * spacingX
+          finalY = ((rows - 1) / 2 - row) * spacingY
+          const limit = mode === 'multi_winner' || mode === 'top_n_ordered' ? .66 : .48
+          finalScale = Math.max(.1, Math.min(limit, (portrait ? 3.1 : 6.4) / Math.max(2, cols * 1.9), 4.8 / Math.max(2, rows * 2.7)))
+          finalRz = mode === 'top_n_ordered' ? (col - (cols - 1) / 2) * -.025 : 0
+        }
+
+        const startX = Math.cos(launchAngle) * .08
+        const startY = Math.sin(launchAngle) * .08
+        const curveX = Math.cos(launchAngle) * arc * (portrait ? .34 : .52)
+        const curveY = Math.sin(launchAngle) * arc * (portrait ? .28 : .4)
+        const curveZ = arc * (portrait ? .85 : 1.2)
+        node.position.set(
+          THREE.MathUtils.lerp(startX, finalX, t) + curveX,
+          THREE.MathUtils.lerp(startY, finalY, t) + curveY,
+          THREE.MathUtils.lerp(.42, 3.2 + resultIndex * .002, t) + curveZ,
+        )
+        node.rotation.set(
+          THREE.MathUtils.lerp((resultIndex % 3 - 1) * .42, 0, t),
+          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * 1.28, 0, t),
+          THREE.MathUtils.lerp((resultIndex % 2 ? 1 : -1) * .38, finalRz, t),
+        )
+        const scale = THREE.MathUtils.lerp(.075, finalScale, t) * (1 + arc * .08)
+        node.scale.setScalar(scale)
       }
     } else {
       const a = index / total * Math.PI * 2 + s.orbit + idle
