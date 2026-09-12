@@ -39,19 +39,43 @@ export function hologram(color: THREE.Color, seed: number) {
   })
 }
 
-export function nameTexture(name: string, number: number) {
-  const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 512
+export function nameTexture(name: string, number: number, kicker = 'WINNER', footer = 'CORE / RESULT') {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = 512
   const ctx = canvas.getContext('2d')!
-  ctx.clearRect(0,0,1024,512)
-  ctx.textAlign = 'center'; ctx.fillStyle = '#efd7a4'
-  ctx.font = '22px monospace'; ctx.fillText('C H O S E N   /   ' + String(number).padStart(2,'0'),512,90)
+  ctx.clearRect(0, 0, 1024, 512)
+  ctx.textAlign = 'center'
+
+  ctx.fillStyle = '#efd7a4'
+  ctx.font = '600 34px monospace'
+  ctx.fillText(`${kicker}  /  ${String(number).padStart(2, '0')}`, 512, 78)
+
   const chars = Array.from(name)
-  const lines = chars.length > 16 ? [chars.slice(0,Math.ceil(chars.length/2)).join(''),chars.slice(Math.ceil(chars.length/2)).join('')] : [name]
-  let size = 82
-  do { ctx.font = `600 ${size}px "Noto Sans JP", sans-serif`; if(lines.every(l=>ctx.measureText(l).width<900))break; size-=2 } while(size>24)
-  ctx.fillStyle = '#fff5df'
-  lines.forEach((line,i)=>ctx.fillText(line,512,lines.length===1?245:210+i*(size+16)))
-  ctx.fillStyle = '#bda884'; ctx.font = '20px monospace';ctx.fillText('C O R E  /  A W A K E N E D',512,405)
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace
+  const lines = chars.length > 13
+    ? [chars.slice(0, Math.ceil(chars.length / 2)).join(''), chars.slice(Math.ceil(chars.length / 2)).join('')]
+    : [name]
+
+  let size = 122
+  do {
+    ctx.font = `700 ${size}px "Noto Sans JP", sans-serif`
+    if (lines.every((line) => ctx.measureText(line).width < 900)) break
+    size -= 3
+  } while (size > 42)
+
+  ctx.fillStyle = '#fff8e9'
+  ctx.shadowColor = 'rgba(232,197,140,.35)'
+  ctx.shadowBlur = 18
+  const centerY = lines.length === 1 ? 252 : 205
+  lines.forEach((line, index) => ctx.fillText(line, 512, centerY + index * (size + 14)))
+  ctx.shadowBlur = 0
+
+  ctx.fillStyle = '#d5bf94'
+  ctx.font = '600 28px monospace'
+  ctx.fillText(footer, 512, 438)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
   return texture
 }
