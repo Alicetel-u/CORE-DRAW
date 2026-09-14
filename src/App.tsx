@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { resolveDraw } from './core/drawEngine'
 import { DrawAudio } from './core/audio'
 import { createCinematicState, directDraw } from './core/cinematic'
 import type { DrawMode, DrawPhase, DrawResult, Participant, QualityTier } from './core/types'
 import { demoParticipants } from './data/demoParticipants'
-import { DrawStage } from './scene/DrawStage'
+const DrawStage = lazy(() => import('./scene/DrawStage').then(module => ({ default: module.DrawStage })))
 import { ParticipantStatusRails } from './components/ParticipantStatusRails'
 
-const APP_VERSION = 'v0.6.2'
+import { APP_VERSION } from './version'
+import type { PresentationTheme } from './presentation/types'
+import { initialTheme, PRESENTATION_THEMES } from './presentation/registry'
+import { QuestRaidStage } from './themes/questRaid/QuestRaidStage'
+import { QuestRaidAudio } from './themes/questRaid/QuestRaidAudio'
+import { createQuestBattleScript, type QuestBattleScript } from './themes/questRaid/questRaidBattle'
+import { playQuestRaidBattle, type QuestFrame } from './themes/questRaid/questRaidDirector'
 
 type Panel = 'participants' | 'history' | 'modes' | null
 type GroupingBasis = 'count' | 'size'
@@ -140,6 +145,10 @@ function ResultOverlay({ result, participants }: { result: DrawResult; participa
 }
 
 export default function App() {
+  const [theme, setTheme] = useState<PresentationTheme>(initialTheme)
+  const [questScript, setQuestScript] = useState<QuestBattleScript | null>(null)
+  const [questFrame, setQuestFrame] = useState<QuestFrame | null>(null)
+  const questAudio = useRef<QuestRaidAudio | null>(null)
   const [participants, setParticipants] = useState(initialParticipants)
   const [phase, setPhase] = useState<DrawPhase>('idle')
   const [result, setResult] = useState<DrawResult | null>(null)
@@ -158,7 +167,7 @@ export default function App() {
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [progress, setProgress] = useState(0)
-  const timeline = useRef<gsap.core.Timeline | null>(null)
+  const timeline = useRef<{ kill(): unknown } | null>(null)
   const audio = useRef<DrawAudio | null>(null)
   const cinematic = useRef(createCinematicState())
   const busyRef = useRef(false)
@@ -187,11 +196,17 @@ export default function App() {
 
   useEffect(() => {
     audio.current = new DrawAudio()
+    questAudio.current = new QuestRaidAudio()
     return () => {
       timeline.current?.kill()
       audio.current?.dispose()
+      questAudio.current?.dispose()
     }
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('core-presentation-theme', theme) } catch { /* Storage is optional. */ }
+  }, [theme])
 
   useEffect(() => {
     try {
@@ -216,6 +231,8 @@ export default function App() {
     timeline.current?.kill()
     busyRef.current = false
     setResult(null)
+    setQuestScript(null)
+    setQuestFrame(null)
     setProgress(0)
     setPhase('idle')
     Object.assign(cinematic.current, createCinematicState())
@@ -231,12 +248,13 @@ export default function App() {
   function play(next: DrawResult, replay = false) {
     if (busyRef.current) return
     busyRef.current = true
-    void audio.current?.unlock()
     timeline.current?.kill()
+    audio.current?.stop()
+    questAudio.current?.stop()
     setResult(next)
     setProgress(0)
 
-    timeline.current = directDraw(cinematic.current, reduced, audio.current, setPhase, () => {
+    const recordResult = () => {
       if (!replay) {
         if (noDuplicates && (next.mode === 'single_winner' || next.mode === 'multi_winner' || next.mode === 'top_n_ordered')) {
           const nextExcluded = exclusionIds(next)
@@ -250,9 +268,24 @@ export default function App() {
           winnerIds: exclusionIds(next),
         }, ...h].slice(0, 20))
       }
-    }, () => {
+    }
+    const finish = () => {
       busyRef.current = false
-    }, setProgress)
+    }
+    if (theme === 'quest_raid') {
+      void questAudio.current?.unlock()
+      const script = createQuestBattleScript(next, participants)
+      setQuestScript(script)
+      setQuestFrame(null)
+      setPhase('charging')
+      timeline.current = playQuestRaidBattle(script, questAudio.current, (frame) => {
+        setQuestFrame(frame)
+        setProgress(frame.elapsed / script.duration * 100)
+      }, () => { setPhase('reveal'); recordResult() }, () => { setPhase('complete'); finish() })
+    } else {
+      void audio.current?.unlock()
+      timeline.current = directDraw(cinematic.current, reduced, audio.current, setPhase, recordResult, finish, setProgress)
+    }
   }
 
   function draw() {
@@ -298,10 +331,11 @@ export default function App() {
     </div>
   }
 
-  return <main className={`app-shell phase-${phase} mode-${mode} ${reduced ? 'reduced' : ''}`}>
+  return <main className={`app-shell phase-${phase} mode-${mode} ${theme === 'quest_raid' ? 'qr-shell' : ''} ${reduced ? 'reduced' : ''}`}>
+    <span className="app-version">{APP_VERSION}</span>
     <header className="topbar">
       <a className="brand" href="./"><span className="brand-symbol">◆</span> CORE <span className="brand-light">DRAW</span><span className="edition">くじびきの間 · {APP_VERSION}</span></a>
-      <div className="top-actions"><span className="live"><i /> じゅんび OK</span><button className="icon-button" onClick={() => { setSound(!sound); audio.current?.mute(!sound) }} aria-label={sound ? '効果音をオフ' : '効果音をオン'} title="おと">{sound ? '♪' : '×'}<span>おと {sound ? 'ON' : 'OFF'}</span></button><button className="icon-button fullscreen" aria-label="全画面切り替え" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); else void document.documentElement.requestFullscreen().catch(() => {}) }}>□<span>ひろげる</span></button></div>
+      <div className="top-actions"><span className="live"><i /> じゅんび OK</span><button className="icon-button" onClick={() => { setSound(!sound); audio.current?.mute(!sound); questAudio.current?.mute(!sound) }} aria-label={sound ? '効果音をオフ' : '効果音をオン'} title="おと">{sound ? '♪' : '×'}<span>おと {sound ? 'ON' : 'OFF'}</span></button><button className="icon-button fullscreen" aria-label="全画面切り替え" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); else void document.documentElement.requestFullscreen().catch(() => {}) }}>□<span>ひろげる</span></button></div>
     </header>
 
     <div className="workspace">
@@ -309,6 +343,7 @@ export default function App() {
         <div className="side-title"><span>なかま</span><span className="tiny">{participants.length}人</span></div>
         <div className="room-heading"><h2>くじびきの間</h2><p>だれが えらばれる？</p></div>
 
+        <label className="theme-picker">演出<select aria-label="演出テーマ" disabled={busy} value={theme} onChange={(e) => { if (busyRef.current) return; resetPresentation(); setTheme(e.target.value as PresentationTheme) }}>{PRESENTATION_THEMES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         <button className="mode-card mode-selector" disabled={busy} onClick={() => setPanel('modes')}><span className="mode-icon">{modeMeta.icon}</span><div><strong>{modeMeta.label}</strong><span>{modeMeta.description}</span></div><span className="mode-check">えらぶ</span></button>
         {(mode === 'multi_winner' || mode === 'top_n_ordered') && <label className="mode-config"><span>{mode === 'top_n_ordered' ? '上位 何人？' : '何人 えらぶ？'}</span><input type="number" min={1} max={Math.max(1, eligible.length)} value={safeWinnerCount} disabled={busy} onChange={(e) => setWinnerCount(Number(e.target.value) || 1)} /></label>}
         {mode === 'grouping' && <section className="grouping-config" aria-label="パーティーの分け方">
@@ -347,9 +382,9 @@ export default function App() {
       </aside>
 
       <section className="stage-shell" aria-label="抽選ステージ">
-        <div className="stage-grid" />
+        {theme === 'core' && <div className="stage-grid" />}
         <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>
-        <div className="scene"><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></div>
+        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={eligible} reduced={reduced} result={result} revealed={revealed} /> : <><div className="scene"><Suspense fallback={null}><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></Suspense></div>
         <div className="scene-vignette" />
 
         <ParticipantStatusRails
@@ -364,7 +399,7 @@ export default function App() {
         <div className="stage-intro"><div className="eyebrow">ぼうけんの くじびき</div><h1>{cycleExhausted ? 'この周回は おしまい！' : revealed ? revealHeadlines[mode] : 'さあ くじを ひこう！'}</h1><p>{cycleExhausted ? '除外をリセットすると 全員が候補に戻ります。' : labels[phase]}</p></div>
         <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{cycleExhausted ? 'つぎの周回へ' : revealed ? 'けっかが でた！' : 'いつでも ひける！'}</>}</div>
         {revealed && result && <ResultOverlay result={result} participants={participants} />}
-
+        </>}
         <div className="stage-bottom">
           <div className="draw-meta"><span>候補</span><strong>{eligible.length}<small>{noDuplicates && exclusionApplies ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
           <div className="launch-area">
@@ -385,3 +420,4 @@ export default function App() {
     </dialog>
   </main>
 }
+

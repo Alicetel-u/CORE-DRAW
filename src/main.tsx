@@ -8,6 +8,7 @@ import './roster-fix.css'
 import './stage-result-hud.css'
 import './grouping-config.css'
 import './result-message-fix.css'
+import './themes/questRaid/questRaid.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

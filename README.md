@@ -120,3 +120,15 @@ The draw experience includes an orbital reactor, animated entry shards, phase-di
 This is a local event tool. The backend/persisted audit boundary above still applies to server-authoritative or regulated use. Local history is a convenience, not an audit log.
 
 See [`ASTRA.md`](./ASTRA.md) before major implementation work.
+
+## QUEST RAID
+
+「演出」から **QUEST RAID** を選び、いつもの抽選ボタンを押してください。待機中・結果表示後は CORE に戻せます。抽選中は切替できません。選択はブラウザに保存されます。
+
+- 戦闘は約10.5秒。グループ分け・シャッフルは約4.6秒の編成演出です。
+- 全6モード、2〜50人。左側に人数分のステータス窓を出します。
+- ボスは通常・攻撃・特殊の3ポーズを切り替えます。
+- 「おなじけっかを もういちど」で、同じボス・戦闘を再生します。履歴は増えません。
+- 効果音と「演出をひかえめに」は既存の設定で操作できます。
+- バージョンは `package.json` を唯一の値として `src/version.ts` から表示します。
+- 戦闘の検証: `node scripts/verify-quest-raid.mjs`（Node.js 24以上）
