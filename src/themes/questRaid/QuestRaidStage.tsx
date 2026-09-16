@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DrawResult, Participant } from '../../core/types'
 import type { QuestBattleScript } from './questRaidBattle'
 import type { BossPose } from './questRaidBosses'
+import type { QuestEffect } from './questRaidEvents'
 import type { QuestFrame } from './questRaidDirector'
 import { QuestRaidRoster } from './QuestRaidRoster'
 import { QuestRaidHud } from './QuestRaidHud'
@@ -29,15 +30,14 @@ function star(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, co
 function boltPath(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, cell: number, seed: number, color: string) {
   ctx.fillStyle = color
   let x = x0, y = y0
-  const steps = 10
+  const steps = 12
   for (let i = 1; i <= steps; i++) {
-    const nx = x0 + (x1 - x0) * i / steps + Math.sin(i * 1.7 + seed) * 22
+    const nx = x0 + (x1 - x0) * i / steps + Math.sin(i * 1.73 + seed) * 20
     const ny = y0 + (y1 - y0) * i / steps
-    const xMin = Math.round(Math.min(x, nx)), yMin = Math.round(Math.min(y, ny))
-    ctx.fillRect(xMin, Math.round(y), Math.max(cell, Math.abs(nx - x)), cell)
-    ctx.fillRect(Math.round(nx), yMin, cell, Math.max(cell, Math.abs(ny - y)))
+    ctx.fillRect(Math.round(Math.min(x, nx)), Math.round(y), Math.max(cell, Math.abs(nx - x)), cell)
+    ctx.fillRect(Math.round(nx), Math.round(Math.min(y, ny)), cell, Math.max(cell, Math.abs(ny - y)))
     if (i % 3 === 0) {
-      const bx = nx + Math.sin(seed + i) * 28
+      const bx = nx + Math.sin(seed + i * 1.4) * 32
       const by = ny + 18
       ctx.fillRect(Math.round(Math.min(nx, bx)), Math.round(ny), Math.max(cell, Math.abs(bx - nx)), cell)
       ctx.fillRect(Math.round(bx), Math.round(ny), cell, Math.max(cell, by - ny))
@@ -47,104 +47,295 @@ function boltPath(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: num
   }
 }
 
+function screenFlash(ctx: CanvasRenderingContext2D, w: number, h: number, color: string, alpha: number) {
+  ctx.save()
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha))
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, w, h)
+  ctx.restore()
+}
+
+function radialGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, inner: string, outer: string) {
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
+  gradient.addColorStop(0, inner)
+  gradient.addColorStop(1, outer)
+  ctx.fillStyle = gradient
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+}
+
+function ring(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, width: number, color: string, alpha = 1) {
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.strokeStyle = color
+  ctx.lineWidth = width
+  ctx.beginPath()
+  ctx.ellipse(x, y, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function polygon(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, sides: number, rotation: number, color: string, width: number, alpha = 1) {
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.strokeStyle = color
+  ctx.lineWidth = width
+  ctx.beginPath()
+  for (let i = 0; i <= sides; i++) {
+    const a = rotation + i / sides * Math.PI * 2
+    const px = x + Math.cos(a) * radius
+    const py = y + Math.sin(a) * radius
+    if (i === 0) ctx.moveTo(px, py)
+    else ctx.lineTo(px, py)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
+function normalizeEffect(effect: QuestEffect): QuestEffect {
+  if (effect === 'fire') return 'fire_breath'
+  if (effect === 'bolt') return 'dark_bolt'
+  if (effect === 'spell') return 'eldritch_spell'
+  if (effect === 'roar') return 'shockwave'
+  return effect
+}
+
 function paintEffects(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  effect: 'fire' | 'bolt' | 'slash' | 'spell' | 'roar' | undefined,
+  rawEffect: QuestEffect | undefined,
   age: number,
   duration: number,
   cx: number,
   cy: number,
   size: number,
 ) {
-  if (!effect) return
-  const p = Math.min(1, age / Math.max(1, duration))
-  const flash = p < .18 ? 1 - p / .18 : p > .82 ? (1 - p) / .18 : .35
-  const cell = Math.max(3, Math.round(size / 42))
-  const t = age / 30
+  if (!rawEffect) return
+  const effect = normalizeEffect(rawEffect)
+  const p = Math.min(1, Math.max(0, age / Math.max(1, duration)))
+  const flash = p < .16 ? 1 - p / .16 : p > .82 ? (1 - p) / .18 : .22
+  const cell = Math.max(3, Math.round(size / 44))
+  const t = age / 32
 
-  if (effect === 'fire') {
-    ctx.fillStyle = `rgba(255,70,0,${0.18 + flash * .28})`
-    ctx.fillRect(0, 0, w, h)
-    for (let i = 0; i < 64; i++) {
-      const rise = ((i * 41 + t * 22) % 120) / 120
-      const x = cx - size * .4 + (i % 12) * size * .07 + Math.sin(t * .8 + i) * 10
-      const y = cy + size * .58 - rise * (size * 1.15 + h * .15)
-      const s = cell + (i % 4) + (rise < .2 ? 3 : 0)
-      px(ctx, x, y, s, i % 5 === 0 ? '#fff6c0' : i % 2 ? '#ff9a1a' : '#e22710')
-    }
-    for (let i = 0; i < 18; i++) star(ctx, cx + Math.sin(i * 1.3 + t) * size * .5, cy - riseStar(i, t) * size, cell, '#ffe08a')
-  } else if (effect === 'bolt') {
-    ctx.fillStyle = `rgba(220,240,255,${flash * .55})`
-    ctx.fillRect(0, 0, w, h)
-    boltPath(ctx, cx, 0, cx + 8, h * .92, cell + 1, t, '#ffffff')
-    boltPath(ctx, cx - size * .22, 0, cx - size * .1, h * .85, cell, t + 2, '#9ad8ff')
-    boltPath(ctx, cx + size * .24, 0, cx + size * .12, h * .88, cell, t + 4, '#c4eeff')
-    for (let i = 0; i < 22; i++) star(ctx, (i * 97 + age * 3) % w, (i * 53 + age * 2) % h, cell, i % 2 ? '#fff' : '#7fd4ff')
-  } else if (effect === 'slash') {
-    ctx.fillStyle = `rgba(255,255,255,${flash * .22})`
-    ctx.fillRect(0, 0, w, h)
-    const slashes = [[-size * .45, -size * .2, size * .95, size * .7], [size * .4, -size * .28, -size * .9, size * .75], [-size * .1, -size * .4, size * .15, size * .95]]
-    for (const [sx, sy, dx, dy] of slashes) {
-      for (let i = 0; i < 22; i++) {
-        const u = i / 21
-        px(ctx, cx + sx + dx * u, cy + sy + dy * u, cell + (i % 3 === 0 ? 3 : 1), i % 2 ? '#fff' : '#d7ecff')
-      }
-    }
-    for (let i = 0; i < 16; i++) star(ctx, cx + Math.cos(i) * size * .55, cy + Math.sin(i * 1.4) * size * .4, cell, '#fff')
-  } else if (effect === 'spell') {
-    ctx.fillStyle = `rgba(70,20,140,${0.16 + flash * .2})`
-    ctx.fillRect(0, 0, w, h)
-    const gy = cy + size * .38
-    for (let r = 1; r <= 5; r++) {
-      const rad = size * (.12 + r * .08) * (.4 + p)
-      ctx.strokeStyle = r % 2 ? '#ffe66f' : '#c9a0ff'
-      ctx.lineWidth = cell
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+
+  if (effect === 'slash') {
+    screenFlash(ctx, w, h, '#f2f8ff', flash * .2)
+    ctx.lineCap = 'square'
+    const slashes = [
+      [-.42, -.3, .44, .38],
+      [.32, -.34, -.5, .35],
+      [-.2, -.42, .2, .48],
+    ]
+    for (let s = 0; s < slashes.length; s++) {
+      const [sx, sy, ex, ey] = slashes[s]
+      ctx.strokeStyle = s === 1 ? '#9fd6ff' : '#ffffff'
+      ctx.lineWidth = cell + (s === 0 ? 4 : 2)
+      ctx.globalAlpha = Math.max(.18, 1 - p)
       ctx.beginPath()
-      ctx.ellipse(cx, gy, rad, rad * .32, 0, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-    for (let i = 0; i < 12; i++) {
-      const a = i / 12 * Math.PI * 2 + t * .25
-      const rad = size * .34
-      ctx.strokeStyle = '#ffe66f'
-      ctx.lineWidth = Math.max(2, cell - 1)
-      ctx.beginPath()
-      ctx.moveTo(cx, gy)
-      ctx.lineTo(cx + Math.cos(a) * rad, gy + Math.sin(a) * rad * .32)
-      ctx.stroke()
-    }
-    for (let i = 0; i < 36; i++) {
-      const rise = ((i * 29 + t * 16) % 100) / 100
-      px(ctx, cx + Math.sin(i + t) * size * .5, gy - rise * size, cell, i % 3 ? '#b388ff' : '#fff4a8')
-    }
-    for (let i = 0; i < 10; i++) star(ctx, cx + Math.cos(i * .7 + t) * size * .6, cy + Math.sin(i + t) * size * .35, cell + 1, '#fff')
-  } else if (effect === 'roar') {
-    ctx.fillStyle = `rgba(255,200,40,${flash * .28})`
-    ctx.fillRect(0, 0, w, h)
-    ctx.strokeStyle = '#ffe66f'
-    ctx.lineWidth = cell + 1
-    for (let r = 1; r <= 6; r++) {
-      const rad = size * .1 * r + p * size * .7
-      ctx.globalAlpha = Math.max(0, 1 - r / 7 - p * .3)
-      ctx.beginPath()
-      ctx.arc(cx, cy + size * .05, rad, 0, Math.PI * 2)
+      ctx.moveTo(cx + sx * size, cy + sy * size)
+      ctx.lineTo(cx + ex * size, cy + ey * size)
       ctx.stroke()
     }
     ctx.globalAlpha = 1
-    for (let i = 0; i < 20; i++) {
-      const a = i / 20 * Math.PI * 2
-      const len = size * (.2 + p * .55)
-      ctx.fillStyle = '#fff3b0'
-      ctx.fillRect(Math.round(cx + Math.cos(a) * size * .12), Math.round(cy + Math.sin(a) * size * .12), Math.max(cell, Math.round(Math.cos(a) * len)), Math.max(cell, Math.round(Math.sin(a) * len * .4)))
+    for (let i = 0; i < 26; i++) {
+      const a = i * 2.17 + t
+      const r = size * (.18 + ((i * 29) % 100) / 190)
+      star(ctx, cx + Math.cos(a) * r, cy + Math.sin(a) * r * .72, cell + i % 2, i % 3 ? '#d8efff' : '#ffffff')
     }
-    for (let i = 0; i < 24; i++) px(ctx, cx + Math.sin(i * 2 + t) * size * .7, h * .82 + (i % 5) * 6, cell, '#c4a06a')
+  } else if (effect === 'bite_impact') {
+    screenFlash(ctx, w, h, '#fff4e8', flash * .24)
+    radialGlow(ctx, cx, cy, size * .42, 'rgba(255,220,180,.42)', 'rgba(255,80,30,0)')
+    ctx.strokeStyle = '#fff2d6'
+    ctx.lineWidth = cell + 4
+    for (const dir of [-1, 1]) {
+      ctx.beginPath()
+      ctx.moveTo(cx - size * .36, cy + dir * size * .32)
+      for (let i = 1; i <= 7; i++) {
+        const u = i / 7
+        ctx.lineTo(cx - size * .36 + u * size * .72, cy + dir * size * (.32 - u * .27) + Math.sin(i * 2.4) * cell * 1.4)
+      }
+      ctx.stroke()
+    }
+    for (let i = 0; i < 22; i++) {
+      const a = i / 22 * Math.PI * 2
+      px(ctx, cx + Math.cos(a) * size * (.2 + p * .3), cy + Math.sin(a) * size * (.14 + p * .22), cell + i % 3, i % 2 ? '#ffc27d' : '#ffffff')
+    }
+  } else if (effect === 'dark_bolt') {
+    screenFlash(ctx, w, h, '#6f35ff', flash * .28)
+    radialGlow(ctx, cx, cy, size * .58, 'rgba(140,70,255,.35)', 'rgba(15,0,45,0)')
+    boltPath(ctx, cx, 0, cx + size * .02, h * .94, cell + 2, t, '#ffffff')
+    boltPath(ctx, cx - size * .2, 0, cx - size * .08, h * .86, cell + 1, t + 2, '#a36dff')
+    boltPath(ctx, cx + size * .2, 0, cx + size * .1, h * .88, cell, t + 4, '#6124d9')
+    for (let i = 0; i < 32; i++) {
+      const x = (i * 83 + age * 2.6) % w
+      const y = (i * 47 + age * 1.5) % h
+      star(ctx, x, y, cell, i % 4 ? '#9e78ff' : '#ffffff')
+    }
+  } else if (effect === 'dark_wave') {
+    screenFlash(ctx, w, h, '#230033', .12 + flash * .12)
+    radialGlow(ctx, cx, cy, size * .72, 'rgba(130,45,200,.3)', 'rgba(10,0,30,0)')
+    for (let i = 0; i < 7; i++) {
+      const q = (p + i * .16) % 1
+      ring(ctx, cx, cy, size * (.12 + q * .88), size * (.05 + q * .32), cell + (i % 2), i % 2 ? '#7b39c8' : '#d79cff', 1 - q)
+    }
+    for (let i = 0; i < 46; i++) {
+      const a = i * 2.39 + t * .12
+      const q = ((i * 31 + t * 8) % 100) / 100
+      px(ctx, cx + Math.cos(a) * size * q * .72, cy + Math.sin(a) * size * q * .3, cell + i % 2, i % 3 ? '#6d2b9c' : '#d8a1ff')
+    }
+  } else if (effect === 'fire_breath') {
+    screenFlash(ctx, w, h, '#ff6a00', .08 + flash * .16)
+    const mouthX = cx - size * .2
+    const mouthY = cy - size * .08
+    for (let i = 0; i < 92; i++) {
+      const q = ((i * 37 + t * 10) % 100) / 100
+      const spread = q * size * .38
+      const x = mouthX - q * Math.max(size * .9, w * .7)
+      const y = mouthY + Math.sin(i * 1.7 + t) * spread * .44 + (i % 5 - 2) * cell
+      const s = cell + Math.round((1 - q) * 7) + i % 3
+      const color = i % 7 === 0 ? '#fff4b0' : i % 3 === 0 ? '#ffd341' : i % 2 ? '#ff8a18' : '#e7350c'
+      px(ctx, x, y, s, color)
+    }
+    radialGlow(ctx, mouthX - size * .28, mouthY, size * .42, 'rgba(255,220,80,.35)', 'rgba(255,60,0,0)')
+    for (let i = 0; i < 18; i++) star(ctx, mouthX - ((i * 67 + age * 1.6) % Math.max(1, w)), mouthY + Math.sin(i + t) * size * .22, cell, '#ffd36c')
+  } else if (effect === 'shockwave') {
+    screenFlash(ctx, w, h, '#fff0a6', flash * .14)
+    for (let i = 0; i < 8; i++) {
+      const q = (p * 1.45 + i * .12) % 1
+      ring(ctx, cx, cy + size * .02, size * (.08 + q * .92), size * (.06 + q * .72), cell + 1, i % 2 ? '#ffe36f' : '#ffffff', 1 - q)
+    }
+    for (let i = 0; i < 36; i++) {
+      const a = i / 36 * Math.PI * 2
+      const r = size * (.18 + p * .72)
+      px(ctx, cx + Math.cos(a) * r, cy + Math.sin(a) * r * .7, cell + i % 3, i % 2 ? '#d7bc68' : '#fff0aa')
+    }
+  } else if (effect === 'charge_impact') {
+    screenFlash(ctx, w, h, '#eaf4ff', flash * .2)
+    ctx.lineWidth = cell
+    for (let i = 0; i < 30; i++) {
+      const y = h * .18 + ((i * 53 + t * 23) % Math.max(1, h * .72))
+      const len = size * (.18 + (i % 6) * .06)
+      ctx.strokeStyle = i % 4 === 0 ? '#ffffff' : '#8eb8d8'
+      ctx.globalAlpha = .35 + (i % 3) * .15
+      ctx.beginPath()
+      ctx.moveTo(w - ((age * 4 + i * 71) % Math.max(1, w)), y)
+      ctx.lineTo(w - ((age * 4 + i * 71) % Math.max(1, w)) - len, y)
+      ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+    const impactX = w * .16
+    const impactY = cy
+    radialGlow(ctx, impactX, impactY, size * .34, 'rgba(255,255,255,.5)', 'rgba(80,140,180,0)')
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2
+      const r = size * (.08 + p * .42)
+      star(ctx, impactX + Math.cos(a) * r, impactY + Math.sin(a) * r, cell, i % 2 ? '#c9e9ff' : '#ffffff')
+    }
+  } else if (effect === 'shield_flash') {
+    screenFlash(ctx, w, h, '#e8f8ff', flash * .18)
+    radialGlow(ctx, cx, cy, size * .6, 'rgba(120,205,255,.28)', 'rgba(20,80,180,0)')
+    const q = .86 + Math.sin(t * .38) * .04
+    polygon(ctx, cx, cy, size * .38 * q, 6, Math.PI / 6, '#d9f4ff', cell + 2, .95)
+    polygon(ctx, cx, cy, size * .29 * q, 6, Math.PI / 6, '#6ec9ff', cell, .85)
+    ctx.strokeStyle = '#ffe99a'
+    ctx.lineWidth = cell + 1
+    ctx.beginPath(); ctx.moveTo(cx - size * .32, cy); ctx.lineTo(cx + size * .32, cy); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(cx, cy - size * .32); ctx.lineTo(cx, cy + size * .32); ctx.stroke()
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2 + t * .08
+      star(ctx, cx + Math.cos(a) * size * .46, cy + Math.sin(a) * size * .46, cell, i % 3 ? '#9bdbff' : '#fff4b0')
+    }
+  } else if (effect === 'blue_flame') {
+    screenFlash(ctx, w, h, '#126bff', .08 + flash * .18)
+    radialGlow(ctx, cx, cy, size * .6, 'rgba(50,140,255,.28)', 'rgba(0,30,100,0)')
+    for (let i = 0; i < 78; i++) {
+      const rise = ((i * 41 + t * 17) % 120) / 120
+      const x = cx + Math.sin(i * 1.31 + t * .3) * size * (.16 + rise * .42)
+      const y = cy + size * .48 - rise * size * 1.12
+      const s = cell + i % 4 + (rise < .18 ? 3 : 0)
+      const color = i % 7 === 0 ? '#effcff' : i % 3 === 0 ? '#70dfff' : i % 2 ? '#188dff' : '#2948d7'
+      px(ctx, x, y, s, color)
+    }
+    for (let i = 0; i < 22; i++) star(ctx, cx + Math.sin(i * 1.9 + t) * size * .48, cy - ((i * 23 + t * 7) % 100) / 100 * size, cell, '#a8ecff')
+  } else if (effect === 'curse_wave') {
+    screenFlash(ctx, w, h, '#40105f', .12 + flash * .12)
+    radialGlow(ctx, cx, cy, size * .7, 'rgba(135,40,190,.3)', 'rgba(20,0,35,0)')
+    for (let i = 0; i < 6; i++) {
+      const q = (p + i * .18) % 1
+      ring(ctx, cx, cy, size * (.1 + q * .78), size * (.08 + q * .58), cell, i % 2 ? '#b663e8' : '#61258e', 1 - q)
+    }
+    for (let i = 0; i < 20; i++) {
+      const a = i / 20 * Math.PI * 2 - t * .07
+      const r = size * (.22 + (i % 4) * .07)
+      const x = cx + Math.cos(a) * r
+      const y = cy + Math.sin(a) * r * .72
+      polygon(ctx, x, y, cell * 2.3, 4, Math.PI / 4 + a, i % 3 ? '#9b4dcc' : '#e0a8ff', Math.max(1, cell - 1), .8)
+    }
+  } else if (effect === 'tentacle_slam') {
+    screenFlash(ctx, w, h, '#bca0cf', flash * .14)
+    ctx.lineCap = 'square'
+    for (let k = 0; k < 4; k++) {
+      ctx.strokeStyle = k % 2 ? '#7d4a82' : '#b07cae'
+      ctx.lineWidth = cell * (3 + k % 2)
+      ctx.beginPath()
+      const startX = cx + (k - 1.5) * size * .13
+      ctx.moveTo(startX, cy - size * .16)
+      for (let i = 1; i <= 6; i++) {
+        const u = i / 6
+        ctx.lineTo(startX + Math.sin(i * 1.8 + k + t * .08) * size * .12, cy - size * .16 + u * size * .72)
+      }
+      ctx.stroke()
+    }
+    const groundY = cy + size * .42
+    for (let i = 0; i < 9; i++) {
+      ctx.strokeStyle = i % 2 ? '#d9b6d5' : '#73506f'
+      ctx.lineWidth = cell
+      ctx.beginPath()
+      ctx.moveTo(cx, groundY)
+      ctx.lineTo(cx + Math.cos(i / 9 * Math.PI * 2) * size * (.2 + p * .46), groundY + Math.sin(i / 9 * Math.PI * 2) * size * .12)
+      ctx.stroke()
+    }
+    for (let i = 0; i < 28; i++) px(ctx, cx + Math.sin(i * 2.3) * size * .56, groundY - ((i * 19 + t * 5) % 30), cell + i % 3, '#b997b1')
+  } else if (effect === 'void_burst') {
+    screenFlash(ctx, w, h, '#f8f0ff', flash * .42)
+    radialGlow(ctx, cx, cy - size * .08, size * .74, 'rgba(255,255,255,.66)', 'rgba(110,30,190,0)')
+    const ox = cx
+    const oy = cy - size * .08
+    for (let i = 0; i < 22; i++) {
+      const a = i / 22 * Math.PI * 2 + t * .025
+      const r0 = size * .11
+      const r1 = size * (.28 + p * .64 + (i % 3) * .03)
+      ctx.strokeStyle = i % 4 === 0 ? '#ffffff' : i % 2 ? '#d8a0ff' : '#8e4ada'
+      ctx.lineWidth = cell + (i % 3)
+      ctx.globalAlpha = .45 + (i % 2) * .25
+      ctx.beginPath(); ctx.moveTo(ox + Math.cos(a) * r0, oy + Math.sin(a) * r0); ctx.lineTo(ox + Math.cos(a) * r1, oy + Math.sin(a) * r1); ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+    ring(ctx, ox, oy, size * (.18 + p * .52), size * (.12 + p * .38), cell + 2, '#ffffff', 1 - p * .55)
+  } else if (effect === 'eldritch_spell') {
+    screenFlash(ctx, w, h, '#401060', .1 + flash * .1)
+    const gy = cy + size * .34
+    radialGlow(ctx, cx, gy, size * .72, 'rgba(95,255,160,.2)', 'rgba(45,0,75,0)')
+    for (let r = 1; r <= 5; r++) {
+      const spin = t * (r % 2 ? .018 : -.014)
+      polygon(ctx, cx, gy, size * (.1 + r * .075) * (.72 + p * .35), r % 2 ? 6 : 8, spin, r % 2 ? '#8dffb4' : '#c76cff', cell, .75)
+    }
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2 + t * .05
+      const r = size * (.18 + (i % 5) * .065)
+      const x = cx + Math.cos(a) * r
+      const y = gy + Math.sin(a) * r * .42
+      star(ctx, x, y, cell, i % 3 ? '#8dffb4' : '#e5b0ff')
+    }
+    for (let i = 0; i < 34; i++) {
+      const rise = ((i * 29 + t * 11) % 100) / 100
+      px(ctx, cx + Math.sin(i * 1.4 + t) * size * .52, gy - rise * size * .9, cell, i % 2 ? '#62d99c' : '#a951d1')
+    }
   }
-}
 
-function riseStar(i: number, t: number) {
-  return ((i * 17 + t * 9) % 80) / 80
+  ctx.restore()
 }
 
 function poseOf(frame: QuestFrame | null): BossPose {
@@ -152,7 +343,10 @@ function poseOf(frame: QuestFrame | null): BossPose {
   if (!event) return 'idle'
   if (event.pose) return event.pose
   if (event.type === 'boss_enrage') return 'special'
-  if (event.type === 'boss_attack' || event.type === 'boss_aoe') return event.effect === 'slash' ? 'attack' : 'special'
+  if (event.type === 'boss_attack' || event.type === 'boss_aoe') {
+    const effect = event.effect ? normalizeEffect(event.effect) : undefined
+    return effect === 'slash' || effect === 'bite_impact' || effect === 'charge_impact' || effect === 'tentacle_slam' ? 'attack' : 'special'
+  }
   return 'idle'
 }
 
