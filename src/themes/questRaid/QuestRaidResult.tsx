@@ -1,4 +1,5 @@
 import type { DrawResult, Participant } from '../../core/types'
+import './questRaidResult.css'
 
 function densityFor(count: number) {
   return count <= 1 ? 'solo' : count <= 8 ? 'few' : count <= 18 ? 'pack' : count <= 32 ? 'crowd' : 'mass'
