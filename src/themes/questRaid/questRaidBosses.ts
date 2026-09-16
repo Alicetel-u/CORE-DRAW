@@ -1,3 +1,5 @@
+import type { QuestEffect } from './questRaidEvents'
+
 export type BossPose = 'idle' | 'attack' | 'special'
 export type QuestBossDefinition = {
   id: string
@@ -7,7 +9,7 @@ export type QuestBossDefinition = {
   width: number
   height: number
   maxHp: number
-  attacks: { id: string; message: string; effect: 'fire' | 'bolt' | 'slash' | 'spell' | 'roar'; pose: 'attack' | 'special' }[]
+  attacks: { id: string; message: string; effect: QuestEffect; pose: 'attack' | 'special' }[]
   effects: { idle: string; attack: string; rage: string; death: string }
   animation: { idleFps: number; attackFps: number; deathFps: number }
 }
@@ -18,31 +20,31 @@ function art(id: string, pose: BossPose) {
 
 const specs = [
   ['dark-lord', 'まおうヴァルガ', [
-    ['つえで たたいた！', 'slash', 'attack'],
-    ['やみのいなずまを よんだ！', 'bolt', 'special'],
-    ['やみのはどうを はなった！', 'spell', 'special'],
+    ['まけんを ふりぬいた！', 'slash', 'attack'],
+    ['やみのいなずまを よんだ！', 'dark_bolt', 'special'],
+    ['やみのはどうを はなった！', 'dark_wave', 'special'],
   ]],
   ['dragon', 'しんえんりゅう', [
-    ['かみついてきた！', 'slash', 'attack'],
-    ['ほのおを はいた！', 'fire', 'special'],
-    ['おたけびを あげた！', 'roar', 'special'],
+    ['するどいきばで かみついた！', 'bite_impact', 'attack'],
+    ['ごうかのブレスを はいた！', 'fire_breath', 'special'],
+    ['だいちをゆらす おたけび！', 'shockwave', 'special'],
   ]],
   ['knight', 'くろがねのきし', [
-    ['つるぎを ふりおろした！', 'slash', 'attack'],
-    ['とっしんしてきた！', 'roar', 'special'],
-    ['ひかりのたてを かかげた！', 'spell', 'special'],
+    ['たいけんを ふりおろした！', 'slash', 'attack'],
+    ['よろいのまま とっしんした！', 'charge_impact', 'attack'],
+    ['せいなるたてを かかげた！', 'shield_flash', 'special'],
   ]],
   ['demon', 'まかいのあくま', [
-    ['つめを ふるった！', 'slash', 'attack'],
-    ['あおいほのおを はいた！', 'fire', 'special'],
-    ['おたけびを あげた！', 'roar', 'special'],
+    ['するどいつめで きりさいた！', 'slash', 'attack'],
+    ['あおいごうかを はきだした！', 'blue_flame', 'special'],
+    ['のろいのさけびを はなった！', 'curse_wave', 'special'],
   ]],
   ['abomination', 'よるのじゃしん', [
-    ['しょくしゅを たたきつけた！', 'slash', 'attack'],
-    ['まばゆいひかりを はなった！', 'bolt', 'special'],
-    ['やみのじゅもんを となえた！', 'spell', 'special'],
+    ['しょくしゅを たたきつけた！', 'tentacle_slam', 'attack'],
+    ['じゃがんが ひかりを はなった！', 'void_burst', 'special'],
+    ['いかいのじゅもんを となえた！', 'eldritch_spell', 'special'],
   ]],
-] as const
+] as const satisfies readonly (readonly [string, string, readonly (readonly [string, QuestEffect, 'attack' | 'special'])[]])[]
 
 export const QUEST_BOSSES: QuestBossDefinition[] = specs.map(([id, name, attacks]) => ({
   id,
