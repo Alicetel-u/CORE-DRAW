@@ -34,8 +34,11 @@ for(const [mode,count,winnerCount] of cases)for(let seed=0;seed<20;seed++){
   for(const fighter of script.fighters){assert.ok(hp[fighter.id]>=0&&hp[fighter.id]<=fighter.maxHp);if(script.survivorIds.includes(fighter.id))assert.ok(hp[fighter.id]>0)}
  }
  assert.deepEqual(Object.keys(hp).filter(id=>hp[id]>0).sort(),[...script.survivorIds].sort())
- if(script.peaceful){assert.ok(script.events.every(e=>!e.hp));assert.equal(script.duration,4600)}else{
-  assert.equal(bossHp,0);assert.equal(script.duration,10500);assert.equal(affected.size,count)
+ const last=script.events.at(-1)
+ assert.equal(script.duration,last.at+last.duration)
+ for(let i=1;i<script.events.length;i++)assert.ok(script.events[i].at>=script.events[i-1].at+script.events[i-1].duration,'Events must not overlap')
+ if(script.peaceful){assert.ok(script.events.every(e=>!e.hp));assert.ok(script.duration>=4000)}else{
+  assert.equal(bossHp,0);assert.ok(script.duration>=15000);assert.equal(affected.size,count)
   assert.deepEqual([...script.survivorIds].sort(),[...(mode==='ordered_list'?result.orderedIds.slice(0,1):result.winnerIds)].sort())
  }
  // With only the winning IDs changed, early stats/attacks must stay identical.
@@ -43,7 +46,8 @@ for(const [mode,count,winnerCount] of cases)for(let seed=0;seed<20;seed++){
   const alternative={...result,winnerIds:[result.orderedIds[1]]}
   const second=createQuestBattleScript(alternative,participants)
   assert.deepEqual(script.fighters,second.fighters)
-  assert.deepEqual(script.events.filter(e=>e.at<6200),second.events.filter(e=>e.at<6200))
+  const cutoff=s=>{const i=s.events.findIndex(e=>e.type==='knockout');return i>0?s.events[i-1].at:s.events.find(e=>e.phase==='FINISH')?.at??s.duration}
+  assert.deepEqual(script.events.filter(e=>e.at<cutoff(script)),second.events.filter(e=>e.at<cutoff(second)))
  }
  bosses.add(script.boss.id);scriptCount++
 }
@@ -60,9 +64,9 @@ const script=createQuestBattleScript(result,participants)
 const run=()=>playQuestRaidBattle(script,null,f=>frames.push(f),()=>reveals++,()=>completes++)
 run()
 let lastPage=0,lastPageChange=0
-for(time=33;time<11000;time+=33){const callback=pending;pending=undefined;callback?.();const frame=frames.at(-1);if(frame.page!==lastPage){assert.ok(time-lastPageChange>=450);lastPage=frame.page;lastPageChange=time}}
-assert.equal(reveals,1);assert.equal(completes,1);assert.equal(frames.at(-1).elapsed,10500)
+for(time=33;time<script.duration+500;time+=33){const callback=pending;pending=undefined;callback?.();const frame=frames.at(-1);if(frame.page!==lastPage){assert.ok(time-lastPageChange>=450);lastPage=frame.page;lastPageChange=time}}
+assert.equal(reveals,1);assert.equal(completes,1);assert.equal(frames.at(-1).elapsed,script.duration)
 assert.deepEqual(frames.at(-1).fighters.filter(f=>f.hp>0).map(f=>f.id).sort(),result.winnerIds.toSorted())
-time=0;reveals=0;completes=0;run();time=20000;pending();assert.equal(reveals,1);assert.equal(completes,1)
+time=0;reveals=0;completes=0;run();time=script.duration+5000;pending();assert.equal(reveals,1);assert.equal(completes,1)
 time=0;reveals=0;completes=0;const handle=run();handle.kill();assert.equal(pending,undefined);assert.equal(reveals,0)
 console.log(`QUEST RAID passed: ${scriptCount} scripts, ${cases.length} cases, all 6 modes, 2/5/10/25/50 people, 5 bosses; deterministic replay, protected survivors, no mutations, hidden early result, director completion/cancellation/paging.`)

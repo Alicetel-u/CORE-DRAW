@@ -383,8 +383,12 @@ export default function App() {
 
       <section className="stage-shell" aria-label="抽選ステージ">
         {theme === 'core' && <div className="stage-grid" />}
-        <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>
-        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={eligible} reduced={reduced} result={result} revealed={revealed} /> : <><div className="scene"><Suspense fallback={null}><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></Suspense></div>
+        {theme !== 'quest_raid' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
+        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={eligible} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
+          <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && eligible.length < 2}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
+          {revealed && result && !cycleExhausted && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
+          {eligible.length < 2 && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
+        </div> : null} /> : <><div className="scene"><Suspense fallback={null}><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></Suspense></div>
         <div className="scene-vignette" />
 
         <ParticipantStatusRails
@@ -400,15 +404,15 @@ export default function App() {
         <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{cycleExhausted ? 'つぎの周回へ' : revealed ? 'けっかが でた！' : 'いつでも ひける！'}</>}</div>
         {revealed && result && <ResultOverlay result={result} participants={participants} />}
         </>}
-        <div className="stage-bottom">
+        {theme !== 'quest_raid' && <div className="stage-bottom">
           <div className="draw-meta"><span>候補</span><strong>{eligible.length}<small>{noDuplicates && exclusionApplies ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
           <div className="launch-area">
             <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={busy || (!cycleExhausted && eligible.length < 2)}><span>▶</span>{busy ? 'くじびき中…' : cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
             <div className="launch-hint">{busy ? 'ちからを あつめています…' : cycleExhausted ? '除外をリセットして 全員を候補に戻します。' : eligible.length < 2 ? '候補が 2人以上 必要です。' : revealed ? <button className="replay" onClick={() => result && play(result, true)}>▶ おなじけっかを もういちど</button> : noDuplicates && exclusionApplies ? '当選者除外：当選した人は次回から外れます。' : modeMeta.description}</div>
           </div>
           <div className="draw-meta align-right"><span>{targetLabel}</span><strong>{targetValue}<small> {targetUnit}</small></strong></div>
-        </div>
-        <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>
+        </div>}
+        {theme !== 'quest_raid' && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
       </section>
     </div>
 
