@@ -1,44 +1,29 @@
 .qr-result-marker{display:none}
+.qr-result-highlight-survivors{display:none}
 
-/* Result presentation stays in the existing party board. Surviving winners receive a clear, ornate gold frame. */
+/* Result state is expressed directly on the surviving roster cards. */
 .qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead){
   position:relative;
-  overflow:visible;
-  border-color:#ffe994;
-  background:linear-gradient(180deg,#70520f 0%,#3f2b08 46%,#241905 100%);
-  box-shadow:
-    0 0 0 2px #9a5c05,
-    0 0 0 3px #ffd45a,
-    0 0 14px rgba(255,205,70,.72),
-    inset 0 0 0 1px #fff1ad,
-    inset 0 0 12px rgba(255,205,76,.2);
+  border:2px solid #ffe89a;
+  background:linear-gradient(180deg,#b77a0a 0%,#704000 18%,#173d9f 19%,#071f66 100%);
+  box-shadow:0 0 0 2px #9a5b00,0 0 12px rgba(255,204,62,.58),inset 0 0 0 1px #fff0a6;
 }
 .qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::before,
 .qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::after{
   content:'';
   position:absolute;
-  width:7px;
-  height:7px;
-  background:#fff0a0;
-  border:1px solid #9b5d08;
+  width:5px;
+  height:5px;
+  background:#fff1a6;
+  box-shadow:0 0 4px #ffd34d;
   transform:rotate(45deg);
-  box-shadow:0 0 6px rgba(255,215,96,.8);
-  z-index:2;
 }
-.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::before{left:-4px;top:-4px}
-.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::after{right:-4px;bottom:-4px}
+.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::before{left:2px;top:2px}
+.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead)::after{right:2px;bottom:2px}
 .qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead) .qr-chip-name{
-  color:#fff7c7;
-  text-shadow:1px 1px 0 #442700,0 0 5px rgba(255,221,104,.38);
+  color:#fff6bf;
+  text-shadow:1px 1px 0 #3c1d00,0 0 5px rgba(255,218,93,.4);
 }
-.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead) .qr-chip-stats,
 .qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead) .qr-chip-stats b{
-  color:#fff7d3;
-}
-.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead) .qr-chip-bar{
-  border-color:#ffe08a;
-  background:#2d1a03;
-}
-.qr-stage:has(.qr-result-highlight-survivors) .qr-chip:not(.qr-dead) .qr-chip-bar i{
-  background:linear-gradient(90deg,#f6b91a,#fff3a6);
+  color:#fff3b1;
 }
