@@ -1,0 +1,1 @@
+Staging assets for generated QUEST RAID boss sprites. Existing production sprites remain untouched until integration is verified.
