@@ -1,0 +1,1 @@
+QUEST RAID generated boss sprite staging folder. 256x256 transparent PNG assets prepared for integration.
