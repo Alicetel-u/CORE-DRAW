@@ -53,7 +53,7 @@ export const QUEST_BOSSES: QuestBossDefinition[] = specs.map(([id, name, attacks
   sprites: { idle: art(id, 'idle'), attack: art(id, 'attack'), special: art(id, 'special') },
   width: 256,
   height: 256,
-  maxHp: 600,
+  maxHp: 999,
   attacks: attacks.map(([message, effect, pose], i) => ({ id: `${id}-${i}`, message, effect, pose })),
   effects: { idle: 'step', attack: 'lunge', rage: 'red', death: 'dissolve' },
   animation: { idleFps: 4, attackFps: 10, deathFps: 10 },

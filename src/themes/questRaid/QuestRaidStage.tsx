@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { DrawResult, Participant } from '../../core/types'
 import type { QuestBattleScript } from './questRaidBattle'
 import type { BossPose } from './questRaidBosses'
@@ -7,6 +7,7 @@ import type { QuestFrame } from './questRaidDirector'
 import { QuestRaidRoster } from './QuestRaidRoster'
 import { QuestRaidHud } from './QuestRaidHud'
 import { QuestRaidResult } from './QuestRaidResult'
+import { QuestRaidBossHp } from './QuestRaidBossHp'
 
 function densityFor(count: number) {
   return count <= 8 ? 'few' : count <= 18 ? 'pack' : count <= 32 ? 'crowd' : 'mass'
@@ -333,14 +334,51 @@ function paintEffects(
       const rise = ((i * 29 + t * 11) % 100) / 100
       px(ctx, cx + Math.sin(i * 1.4 + t) * size * .52, gy - rise * size * .9, cell, i % 2 ? '#62d99c' : '#a951d1')
     }
+  } else if (effect === 'ally_shot') {
+    ctx.fillStyle = 'rgba(255, 214, 90, 0.16)'
+    ctx.fillRect(0, 0, w * .28, h)
+    const q = Math.min(1, p * 1.25)
+    const x0 = 8, y0 = h * .72
+    const x1 = cx, y1 = cy
+    ctx.strokeStyle = '#ffe66f'
+    ctx.lineWidth = cell + 3
+    ctx.globalAlpha = .9
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q); ctx.stroke()
+    ctx.strokeStyle = '#fff8d0'
+    ctx.lineWidth = cell
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q); ctx.stroke()
+    star(ctx, x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, cell + 3, '#ffffff')
+    if (q > .7) radialGlow(ctx, cx, cy, size * .22, 'rgba(255,230,140,.45)', 'rgba(255,200,60,0)')
+  } else if (effect === 'ally_heal') {
+    ctx.fillStyle = 'rgba(90, 255, 160, 0.12)'
+    ctx.fillRect(0, 0, w * .32, h)
+    for (let i = 0; i < 20; i++) {
+      const x = 10 + (i * 37 + t * 6) % (w * .28)
+      const y = h * .2 + ((i * 53 + t * 11) % (h * .7))
+      star(ctx, x, y, cell + i % 2, i % 2 ? '#7dff92' : '#e8ffe8')
+    }
+  } else if (effect === 'ally_cheer') {
+    ctx.fillStyle = 'rgba(255, 180, 230, 0.12)'
+    ctx.fillRect(0, 0, w * .32, h)
+    for (let i = 0; i < 14; i++) star(ctx, 16 + (i * 29) % (w * .26), h * .25 + Math.sin(i + t * .2) * h * .2, cell + 2, i % 2 ? '#ffe66f' : '#ff9ad4')
+  } else if (effect === 'ally_toss') {
+    ctx.fillStyle = 'rgba(255, 214, 90, 0.1)'
+    ctx.fillRect(0, 0, w * .28, h)
+    const q = Math.min(1, p * 1.35)
+    const x = 12 + q * (cx - 12)
+    const y = h * .78 - q * (h * .78 - cy) - Math.sin(q * Math.PI) * 56
+    px(ctx, x, y, cell + 4, '#ffe66f')
+    star(ctx, x, y, cell + 1, '#ffffff')
   }
 
   ctx.restore()
 }
 
-function poseOf(frame: QuestFrame | null): BossPose {
+function poseOf(frame: QuestFrame | null, age = 0): BossPose {
   const event = frame?.event
   if (!event) return 'idle'
+  const fx = event.fx ?? event.duration
+  if (fx > 0 && age >= fx && event.type !== 'boss_defeat' && event.type !== 'result' && event.type !== 'boss_enrage') return 'idle'
   if (event.pose) return event.pose
   if (event.type === 'boss_enrage') return 'special'
   if (event.type === 'boss_attack' || event.type === 'boss_aoe') {
@@ -380,9 +418,10 @@ function paint(
 
   const { event, bossHp } = frame
   const age = elapsed - event.at
+  const fx = event.fx ?? event.duration
   const settled = event.type === 'result'
-  const hit = !settled && ['player_attack', 'player_spell', 'final_strike'].includes(event.type) && age < event.duration
-  const attacking = !settled && ['boss_attack', 'boss_aoe'].includes(event.type) && age < event.duration
+  const hit = !settled && ['player_attack', 'player_spell', 'player_heal', 'player_item', 'final_strike'].includes(event.type) && age < fx
+  const attacking = !settled && ['boss_attack', 'boss_aoe'].includes(event.type) && age < fx
   const death = event.type === 'boss_defeat'
   const rage = !settled && !death && bossHp <= script.boss.maxHp * .3
   const step = settled || death || reduced ? 0 : Math.floor(elapsed / (1000 / (rage ? 6 : script.boss.animation.idleFps))) % 2
@@ -397,7 +436,7 @@ function paint(
     ctx.fillRect(0, 0, w, h)
   }
 
-  const sprite = sprites[poseOf(frame)] ?? sprites.idle
+  const sprite = sprites[poseOf(frame, age)] ?? sprites.idle
   ctx.save()
   if (settled) ctx.globalAlpha = .55
   else if (death) ctx.globalAlpha = Math.max(0, 1 - age / event.duration)
@@ -416,20 +455,22 @@ function paint(
     }
   }
 
-  if (attacking && !reduced) paintEffects(ctx, w, h, event.effect, age, event.duration, cx, cy, size)
+  if (attacking && !reduced) paintEffects(ctx, w, h, event.effect, age, fx, cx, cy, size)
+  if (hit && !reduced) paintEffects(ctx, w, h, event.effect ?? 'ally_shot', age, fx, cx, cy, size)
   if (hit && !reduced && event.type === 'final_strike') {
-    ctx.fillStyle = 'rgba(255,255,220,0.18)'
-    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = 'rgba(255,236,150,0.14)'
+    ctx.fillRect(0, 0, w * .34, h)
   }
 }
 
-export function QuestRaidStage({ script, frame, participants, reduced, result, revealed }: {
+export function QuestRaidStage({ script, frame, participants, reduced, result, revealed, action }: {
   script: QuestBattleScript | null
   frame: QuestFrame | null
   participants: Participant[]
   reduced: boolean
   result?: DrawResult | null
   revealed?: boolean
+  action?: ReactNode
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const field = useRef<HTMLDivElement>(null)
@@ -515,9 +556,17 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       reduced={reduced}
     />
     <div className="qr-main">
+      <QuestRaidBossHp
+        name={script && !script.peaceful ? script.boss.name : 'QUEST RAID'}
+        hp={frame?.bossHp ?? script?.boss.maxHp ?? 0}
+        maxHp={script?.boss.maxHp ?? 0}
+        alive={fighters.filter(f => f.hp > 0).length}
+        reduced={reduced}
+        peaceful={Boolean(script?.peaceful)}
+      />
       <div className="qr-boss-area" ref={field}>
         <canvas ref={canvas} aria-label={script && !script.peaceful ? script.boss.name : 'QUEST RAID'} />
-        <div className="qr-battle-info">{script?.peaceful ? 'へんせい' : `せいぞん ${fighters.filter(f => f.hp > 0).length}`}<span>{script && !script.peaceful ? script.boss.name : 'QUEST RAID'}</span></div>
+        {action}
         {revealed && result && <QuestRaidResult result={result} participants={participants} />}
       </div>
       <QuestRaidHud event={event} age={age} reduced={reduced} />

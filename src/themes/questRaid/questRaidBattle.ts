@@ -2,11 +2,13 @@ import type { DrawResult, Participant } from '../../core/types'
 import { QUEST_BOSSES, type QuestBossDefinition } from './questRaidBosses'
 import { createSeededRandom, shuffle } from './questRaidSeed'
 import type { Fighter, QuestBattleEvent, QuestPhase } from './questRaidEvents'
+import { questBeat } from './questRaidEvents'
+import { pickSkill, type AllySkill } from './questRaidSkills'
 export type QuestBattleScript = { boss: QuestBossDefinition; fighters: Fighter[]; events: QuestBattleEvent[]; duration: number; survivorIds: string[]; peaceful: boolean }
 
 // Presentation only. All selections and rankings come exclusively from DrawResult.
 export function createQuestBattleScript(result: DrawResult, participants: Participant[]): QuestBattleScript {
-  const random = createSeededRandom(result.drawId + 'quest-raid-v1')
+  const random = createSeededRandom(result.drawId + 'quest-raid-v3')
   const int = (min: number, max: number) => min + Math.floor(random() * (max - min + 1))
   const boss = QUEST_BOSSES[int(0, QUEST_BOSSES.length - 1)]
   const eligible = new Set(result.orderedIds)
@@ -15,6 +17,7 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
     const maxHp = int(80, 160), maxMp = int(12, 55)
     return { id: p.id, name: p.name, maxHp, hp: maxHp, maxMp, mp: maxMp }
   })
+  const jobOf = Object.fromEntries(fighters.map(f => [f.id, int(0, 7)]))
   const peaceful = result.mode === 'grouping' || result.mode === 'shuffle_only'
   const survivorIds = peaceful ? fighters.map(f => f.id) : result.mode === 'ordered_list' ? result.orderedIds.slice(0, 1) : [...result.winnerIds]
   const survivors = new Set(survivorIds)
@@ -22,61 +25,151 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
   const hp = Object.fromEntries(fighters.map(f => [f.id, f.hp]))
   const mp = Object.fromEntries(fighters.map(f => [f.id, f.mp]))
   let bossHp = boss.maxHp
-  const push = (type: QuestBattleEvent['type'], phase: QuestPhase, at: number, duration: number, message: string, extra: Partial<QuestBattleEvent> = {}) => events.push({ type, phase, at, duration, message, ...extra })
+  let t = 0
+  const act = (type: QuestBattleEvent['type'], phase: QuestPhase, message: string, effectMs: number, extra: Partial<QuestBattleEvent> = {}, holdMs?: number) => {
+    const duration = questBeat(message, effectMs, holdMs)
+    events.push({ type, phase, at: t, duration, message, fx: effectMs, ...extra })
+    t += duration
+  }
   if (peaceful) {
-    push('intro', 'INTRO', 0, 800, result.mode === 'grouping' ? 'とうばつたいを\nへんせいしている……' : 'たいれつを\nくみなおしている……')
-    for (let i = 0; i < 7; i++) push('formation', 'SKIRMISH', 800 + i * 400, 300, 'なかまたちが\nあつまってきた！', { order: shuffle(fighters.map(f => f.id), random) })
-    push('result', 'RESULT', 3900, 700, result.mode === 'grouping' ? 'とうばつたいが\nけっていした！' : 'たいれつを\nくみなおした！', { order: [...result.orderedIds] })
-    return { boss, fighters, events, duration: 4600, survivorIds, peaceful }
+    act('intro', 'INTRO', result.mode === 'grouping' ? 'とうばつたいを\nへんせいしている……' : 'たいれつを\nくみなおしている……', 360)
+    for (let i = 0; i < 7; i++) act('formation', 'SKIRMISH', 'なかまたちが\nあつまってきた！', 240, { order: shuffle(fighters.map(f => f.id), random) }, 220)
+    act('result', 'RESULT', result.mode === 'grouping' ? 'とうばつたいが\nけっていした！' : 'たいれつを\nくみなおした！', 280, { order: [...result.orderedIds] })
+    return { boss, fighters, events, duration: t, survivorIds, peaceful }
   }
-  push('intro', 'INTRO', 0, 850, `${boss.name} が\nあらわれた！`)
-  const actors = shuffle(fighters, random)
-  for (let i = 0; i < 7; i++) {
-    const actor = actors[i % actors.length], spell = i % 3 === 1, critical = random() < .22
-    const damage = critical ? int(35, 75) : int(8, 35)
-    bossHp -= damage
-    if (spell) mp[actor.id] = Math.max(0, mp[actor.id] - 5)
-    push(spell ? 'player_spell' : 'player_attack', 'SKIRMISH', 900 + i * 260, spell ? 300 : 230,
-      `${actor.name} の ${spell ? 'ひかりのや！' : 'こうげき！'}\n${critical ? 'かいしん！ ' : ''}${damage}の ダメージ！`,
-      { actorId: actor.id, damage, critical, bossHp, mp: spell ? { [actor.id]: mp[actor.id] } : undefined })
-  }
-  let lastTargetIds: string[] = []
+
+  const roster = shuffle(fighters, random)
+  let turn = 0
+  const nextActor = () => roster[turn++ % roster.length]
   let nextAttack = 0
-  const strike = (at: number, phase: QuestPhase, targets: Fighter[], final = false) => {
+  const split = (total: number, n: number) => {
+    if (n <= 0) return [] as number[]
+    const weights = Array.from({ length: n }, () => 0.55 + random())
+    const sum = weights.reduce((a, b) => a + b, 0)
+    let left = total
+    return weights.map((w, i) => {
+      if (i === n - 1) return Math.max(1, left)
+      const v = Math.max(1, Math.round(total * w / sum))
+      left -= v
+      return v
+    })
+  }
+  const record = (preferBig: boolean) => {
+    const actor = nextActor()
+    return { actor, skill: pickSkill(jobOf[actor.id], random, preferBig) as AllySkill }
+  }
+  const playAlly = (phase: QuestPhase, step: { actor: Fighter; skill: AllySkill }, chunks: number[]) => {
+    const { actor, skill } = step
+    const extra: Partial<QuestBattleEvent> = { actorId: actor.id, effect: skill.effect, bossHp }
+    if (skill.mp) {
+      mp[actor.id] = Math.max(0, mp[actor.id] - skill.mp)
+      extra.mp = { [actor.id]: mp[actor.id] }
+    }
+    let message = `${actor.name} の ${skill.label}！`
+    if (skill.kind === 'damage') {
+      const damage = Math.max(1, chunks.shift() ?? int(12, 28))
+      const critical = damage >= Math.round(boss.maxHp * .09)
+      bossHp = Math.max(1, bossHp - damage)
+      extra.damage = damage
+      extra.critical = critical
+      extra.bossHp = bossHp
+      message += `\n${critical ? 'かいしん！ ' : ''}${damage}の ダメージ！`
+    } else if (skill.kind === 'miss') {
+      extra.damage = 0
+      message += `\n${skill.fail}`
+    } else if (skill.kind === 'stun') {
+      message += `\n${skill.fail}`
+    } else {
+      const hurt = [...fighters].sort((a, b) => hp[a.id] / a.maxHp - hp[b.id] / b.maxHp)
+      const target = hurt[0] ?? actor
+      hp[target.id] = Math.min(target.maxHp, hp[target.id] + int(22, 55))
+      extra.targetIds = [target.id]
+      extra.hp = { [target.id]: hp[target.id] }
+      message = `${actor.name} の ${skill.label}！\n${target.name} のキズが かいふくした！`
+    }
+    act(skill.type, phase, message, skill.fx, extra)
+  }
+
+  const pickTargets = (kind: 'one' | 'few' | 'many') => {
+    const pool = shuffle(fighters, random)
+    if (kind === 'one') return pool.slice(0, 1)
+    if (kind === 'few') return pool.slice(0, Math.max(1, Math.min(3, Math.ceil(fighters.length * .22))))
+    return pool.slice(0, Math.max(2, Math.ceil(fighters.length * .4)))
+  }
+  const unevenHit = (f: Fighter, smash: boolean) => {
+    const roll = random()
+    if (roll < .16) return 0
+    if (roll < .34) return int(2, 9)
+    if (!smash && roll < .8) return int(11, 27)
+    return int(34, Math.max(35, Math.min(hp[f.id] - 1, smash ? 88 : 52)))
+  }
+  const strike = (phase: QuestPhase, targets: Fighter[], opts?: { wipe?: boolean; special?: boolean; smash?: boolean }) => {
     const attack = boss.attacks[nextAttack++ % boss.attacks.length]
+    const special = opts?.special ?? attack.pose === 'special'
     const changes: Record<string, number> = {}
     for (const f of targets) {
-      changes[f.id] = final ? (survivors.has(f.id) ? Math.max(1, Math.floor(f.maxHp * (random() < .65 ? int(1, 8) : int(15, 35)) / 100)) : 0) : Math.max(1, hp[f.id] - int(15, 45))
+      if (opts?.wipe) changes[f.id] = survivors.has(f.id) ? Math.max(1, hp[f.id]) : 0
+      else changes[f.id] = Math.max(1, hp[f.id] - unevenHit(f, Boolean(opts?.smash)))
       hp[f.id] = changes[f.id]
     }
-    lastTargetIds = targets.map(f => f.id)
-    push(targets.length === 1 ? 'boss_attack' : 'boss_aoe', phase, at, attack.pose === 'special' ? 720 : 560, `${boss.name} は\n${attack.message}`, { targetIds: lastTargetIds, hp: changes, attackId: attack.id, effect: attack.effect, pose: attack.pose })
+    const ids = targets.map(f => f.id)
+    act(targets.length === 1 ? 'boss_attack' : 'boss_aoe', phase, `${boss.name} は\n${attack.message}`, special ? 980 : 780, {
+      targetIds: ids, hp: changes, attackId: attack.id, effect: attack.effect, pose: special ? 'special' : 'attack',
+    })
   }
-  // Early damage and actors are independent of the winning IDs; nobody is eliminated early.
-  strike(2850, 'RAID', fighters)
-  strike(3500, 'RAID', shuffle(fighters, random).slice(0, Math.max(1, Math.ceil(fighters.length / 2))))
-  const otherTargets = fighters.filter(f => !lastTargetIds.includes(f.id))
-  strike(4100, 'RAID', otherTargets.length ? otherTargets : fighters)
-  const healed = actors[int(0, actors.length - 1)]
-  hp[healed.id] = Math.min(healed.maxHp, hp[healed.id] + int(20, 40))
-  push('player_heal', 'CRISIS', 4750, 280, `${healed.name} に\nいやしのひかり！`, { actorId: healed.id, targetIds: [healed.id], hp: { [healed.id]: hp[healed.id] }, mp: { [healed.id]: Math.max(0, mp[healed.id] - 10) } })
-  bossHp = Math.min(bossHp, Math.floor(boss.maxHp * .29))
-  push('boss_enrage', 'CRISIS', 5150, 400, `${boss.name} が\nいかりに ふるえている！`, { bossHp, pose: 'special' })
-  strike(5600, 'CRISIS', fighters)
-  // Ordered mode uses reverse ranking as the knockout order; other modes use a seeded order.
-  const losers = result.mode === 'ordered_list' ? result.orderedIds.slice(1).reverse().map(id => fighters.find(f => f.id === id)!) : shuffle(fighters.filter(f => !survivors.has(f.id)), random)
-  const chunkSize = Math.max(1, Math.ceil(losers.length / 3))
-  for (let i = 0; i < 3; i++) {
-    const targets = losers.slice(i * chunkSize, (i + 1) * chunkSize)
-    if (targets.length) {
-      strike(6200 + i * 550, 'CRISIS', targets, true)
-      push('knockout', 'CRISIS', 6460 + i * 550, 200, targets.length === 1 ? `${targets[0].name} は\nちからつきた！` : `${targets.length}人の なかまが\nちからつきた！`, { targetIds: targets.map(f => f.id) })
+
+  act('intro', 'INTRO', `${boss.name} が\nあらわれた！`, 420, { bossHp })
+
+  const pre = [
+    record(false), record(false),
+    record(false), record(false),
+    record(false), record(true),
+    record(true), record(true),
+    record(true), record(true),
+    record(false),
+  ]
+  const post = [record(true), record(false)]
+  const preChunks = split(Math.round(boss.maxHp * .70), pre.filter(s => s.skill.kind === 'damage').length)
+  const postChunks = split(Math.round(boss.maxHp * .18), post.filter(s => s.skill.kind === 'damage').length)
+
+  for (let round = 0; round < 3; round++) {
+    playAlly('SKIRMISH', pre[round * 2], preChunks)
+    playAlly('SKIRMISH', pre[round * 2 + 1], preChunks)
+    strike('SKIRMISH', pickTargets(round === 0 ? 'few' : 'one'), { smash: round === 2 })
+  }
+  for (let round = 0; round < 2; round++) {
+    playAlly('RAID', pre[6 + round * 2], preChunks)
+    playAlly('RAID', pre[7 + round * 2], preChunks)
+    strike('RAID', pickTargets(round === 0 ? 'many' : 'few'), { smash: round === 1 })
+  }
+  playAlly('RAID', pre[10], preChunks)
+  const missed = fighters.filter(f => hp[f.id] === f.maxHp)
+  if (missed.length) strike('RAID', missed, { smash: false })
+  act('boss_enrage', 'CRISIS', `${boss.name} が\nいかりに ふるえている！`, 640, { bossHp, pose: 'special' })
+  strike('CRISIS', pickTargets('few'), { smash: true, special: true })
+  strike('CRISIS', pickTargets('one'), { smash: true, special: true })
+  playAlly('CRISIS', post[0], postChunks)
+  playAlly('CRISIS', post[1], postChunks)
+
+  const losers = shuffle(fighters.filter(f => !survivors.has(f.id)), random)
+  if (losers.length) {
+    strike('FINISH', fighters, { wipe: true, special: true })
+    const waves = losers.length > 16 ? 2 : 1
+    const chunk = Math.ceil(losers.length / waves)
+    for (let i = 0; i < waves; i++) {
+      const group = losers.slice(i * chunk, (i + 1) * chunk)
+      if (!group.length) continue
+      act('knockout', 'FINISH', group.length === 1 ? `${group[0].name} は\nちからつきた！` : `${group.length}人の なかまが\nちからつきた！`, 420, { targetIds: group.map(f => f.id) })
     }
   }
-  strike(7900, 'FINISH', fighters.filter(f => survivors.has(f.id)), true)
+
   const finalId = result.mode === 'multi_winner' ? undefined : result.orderedIds[0]
-  push('final_strike', 'FINISH', 8400, 600, finalId ? `${fighters.find(f => f.id === finalId)?.name} の\nかいしんの いちげき！` : 'のこった なかまたちの\nそうこうげき！', { actorId: finalId, targetIds: survivorIds, bossHp: 0, critical: true })
-  push('boss_defeat', 'FINISH', 9000, 850, `${boss.name} を\nたおした！`, { bossHp: 0 })
-  push('result', 'RESULT', 9900, 600, result.mode === 'single_winner' ? `${fighters.find(f => f.id === survivorIds[0])?.name} が\nえらばれた！` : 'たたかいの けっかが\nきろくされた！')
-  return { boss, fighters, events: events.sort((a, b) => a.at - b.at), duration: 10500, survivorIds, peaceful }
+  const lastHit = Math.max(1, bossHp)
+  bossHp = 0
+  act('final_strike', 'FINISH', finalId ? `${fighters.find(f => f.id === finalId)?.name} の\nきめた！ さいごのひとふり！\n${lastHit}の ダメージ！` : `のこった なかまたちの\nそうこうげき！\n${lastHit}の ダメージ！`, 860, {
+    actorId: finalId, targetIds: survivorIds, bossHp: 0, critical: true, damage: lastHit, effect: 'ally_shot',
+  })
+  act('boss_defeat', 'FINISH', `${boss.name} を\nたおした！`, 1100, { bossHp: 0 })
+  act('result', 'RESULT', result.mode === 'single_winner' ? `${fighters.find(f => f.id === survivorIds[0])?.name} が\nえらばれた！` : 'たたかいの けっかが\nきろくされた！', 360)
+  return { boss, fighters, events, duration: t, survivorIds, peaceful }
 }
