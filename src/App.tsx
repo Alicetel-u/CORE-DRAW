@@ -15,6 +15,8 @@ import { QuestRaidStage } from './themes/questRaid/QuestRaidStage'
 import { QuestRaidAudio } from './themes/questRaid/QuestRaidAudio'
 import { createQuestBattleScript, type QuestBattleScript } from './themes/questRaid/questRaidBattle'
 import { playQuestRaidBattle, type QuestFrame } from './themes/questRaid/questRaidDirector'
+import { QuestRaidTavern } from './themes/questRaid/tavern/QuestRaidTavern'
+import { createTavernScript, playQuestRaidTavern, type TavernFrame, type TavernScript } from './themes/questRaid/tavern/questRaidTavernDirector'
 
 type Panel = 'participants' | 'history' | 'modes' | null
 type GroupingBasis = 'count' | 'size'
@@ -145,7 +147,10 @@ export default function App() {
   const [theme, setTheme] = useState<PresentationTheme>(initialTheme)
   const [questScript, setQuestScript] = useState<QuestBattleScript | null>(null)
   const [questFrame, setQuestFrame] = useState<QuestFrame | null>(null)
+  const [tavernScript, setTavernScript] = useState<TavernScript | null>(null)
+  const [tavernFrame, setTavernFrame] = useState<TavernFrame | null>(null)
   const questAudio = useRef<QuestRaidAudio | null>(null)
+  const tavernAdvance = useRef<(() => void) | null>(null)
   const [participants, setParticipants] = useState(initialParticipants)
   const [phase, setPhase] = useState<DrawPhase>('idle')
   const [result, setResult] = useState<DrawResult | null>(null)
@@ -236,6 +241,9 @@ export default function App() {
     setResult(null)
     setQuestScript(null)
     setQuestFrame(null)
+    setTavernScript(null)
+    setTavernFrame(null)
+    tavernAdvance.current = null
     setProgress(0)
     setPhase('idle')
     Object.assign(cinematic.current, createCinematicState())
@@ -275,11 +283,28 @@ export default function App() {
     const finish = () => {
       busyRef.current = false
     }
-    if (theme === 'quest_raid') {
+    if (theme === 'quest_raid' && next.mode === 'grouping') {
+      void questAudio.current?.unlock()
+      const script = createTavernScript(next, participants, reduced)
+      setTavernScript(script)
+      setTavernFrame(null)
+      setQuestScript(null)
+      setQuestFrame(null)
+      setPhase('charging')
+      const handle = playQuestRaidTavern(script, reduced, questAudio.current, (frame) => {
+        setTavernFrame(frame)
+        setProgress(script.duration ? frame.elapsed / script.duration * 100 : 100)
+      }, () => { setPhase('reveal'); recordResult() }, () => { setPhase('complete'); finish() })
+      timeline.current = handle
+      tavernAdvance.current = () => handle.advance()
+    } else if (theme === 'quest_raid') {
       void questAudio.current?.unlock()
       const script = createQuestBattleScript(next, participants)
       setQuestScript(script)
       setQuestFrame(null)
+      setTavernScript(null)
+      setTavernFrame(null)
+      tavernAdvance.current = null
       setPhase('charging')
       timeline.current = playQuestRaidBattle(script, questAudio.current, (frame) => {
         setQuestFrame(frame)
@@ -384,7 +409,11 @@ export default function App() {
       <section className="stage-shell" aria-label="抽選ステージ">
         {theme === 'core' && <div className="stage-grid" />}
         {theme !== 'quest_raid' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
-        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className={`qr-center-actions${revealed && (mode === 'grouping' || mode === 'shuffle_only') ? ' qr-docked' : ''}`}>
+        {theme === 'quest_raid' && mode === 'grouping' ? <QuestRaidTavern script={tavernScript} frame={tavernFrame} participants={participants} reduced={reduced} revealed={revealed} result={result} onAdvance={() => tavernAdvance.current?.()} action={!busy ? <div className={`qr-center-actions${revealed ? ' qr-docked' : ''}`}>
+          <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
+          {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
+          {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
+        </div> : null} /> : theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className={`qr-center-actions${revealed && mode === 'shuffle_only' ? ' qr-docked' : ''}`}>
           <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
           {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
           {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
