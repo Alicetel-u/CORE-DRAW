@@ -7,14 +7,14 @@ function densityFor(count: number) {
 }
 
 const PARTY_PALETTES = [
-  { accent: '#ffe66f', tint: 'rgba(255,230,111,.13)' },
-  { accent: '#7dff92', tint: 'rgba(125,255,146,.13)' },
-  { accent: '#7ed7ff', tint: 'rgba(126,215,255,.13)' },
-  { accent: '#ff9fe5', tint: 'rgba(255,159,229,.13)' },
-  { accent: '#ffae6f', tint: 'rgba(255,174,111,.13)' },
-  { accent: '#c7a3ff', tint: 'rgba(199,163,255,.13)' },
-  { accent: '#76f0df', tint: 'rgba(118,240,223,.13)' },
-  { accent: '#ff8f9f', tint: 'rgba(255,143,159,.13)' },
+  { accent: '#ffe66f', tint: 'rgba(255,230,111,.18)' },
+  { accent: '#7dff92', tint: 'rgba(125,255,146,.18)' },
+  { accent: '#7ed7ff', tint: 'rgba(126,215,255,.18)' },
+  { accent: '#ff9fe5', tint: 'rgba(255,159,229,.18)' },
+  { accent: '#ffae6f', tint: 'rgba(255,174,111,.18)' },
+  { accent: '#c7a3ff', tint: 'rgba(199,163,255,.18)' },
+  { accent: '#76f0df', tint: 'rgba(118,240,223,.18)' },
+  { accent: '#ff8f9f', tint: 'rgba(255,143,159,.18)' },
 ]
 
 const RANK_GOLD = '#ffd65a'
@@ -23,8 +23,8 @@ function paletteFor(party: number) {
   return PARTY_PALETTES[(party - 1) % PARTY_PALETTES.length]
 }
 
-function Status({ fighter, critical, acting, targeted, compact, reduced }: {
-  fighter: Fighter; critical: boolean; acting: boolean; targeted: boolean; compact: boolean; reduced: boolean
+function Status({ fighter, critical, acting, targeted, compact, reduced, insidePartyBlock = false }: {
+  fighter: Fighter; critical: boolean; acting: boolean; targeted: boolean; compact: boolean; reduced: boolean; insidePartyBlock?: boolean
 }) {
   const [hp, setHp] = useState(fighter.hp)
   const previous = useRef(fighter.hp)
@@ -41,7 +41,7 @@ function Status({ fighter, critical, acting, targeted, compact, reduced }: {
   const state = hpState(fighter.hp, fighter.maxHp)
   const ratio = fighter.maxHp <= 0 ? 0 : Math.max(0, Math.min(1, hp / fighter.maxHp))
   const partyAccent = fighter.party ? paletteFor(fighter.party).accent : undefined
-  const decorated = Boolean(fighter.rank || fighter.party)
+  const decorated = Boolean(fighter.rank || (fighter.party && !insidePartyBlock))
   const accent = fighter.rank ? RANK_GOLD : partyAccent
   return <div
     className={`qr-chip qr-${state}${critical ? ' qr-critical-enter' : ''}${acting ? ' qr-acting' : ''}${targeted ? ' qr-targeted' : ''}`}
@@ -86,13 +86,14 @@ function Status({ fighter, critical, acting, targeted, compact, reduced }: {
   </div>
 }
 
-function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduced }: {
+function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduced, insidePartyBlock = false }: {
   fighter: Fighter
   criticalIds: string[]
   actorId?: string
   targets: Set<string>
   compact: boolean
   reduced: boolean
+  insidePartyBlock?: boolean
 }) {
   return <Status
     fighter={fighter}
@@ -101,6 +102,7 @@ function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduce
     targeted={targets.has(fighter.id)}
     compact={compact}
     reduced={reduced}
+    insidePartyBlock={insidePartyBlock}
   />
 }
 
@@ -153,47 +155,66 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
   }
 
   const unassigned = fighters.filter(f => !f.party)
-  const blockColumns = partyNumbers.length <= 3 ? 1 : partyNumbers.length <= 8 ? 2 : 3
-  const memberColumns = fighters.length <= 12 ? 2 : fighters.length <= 28 ? 2 : 3
+  const rowCount = partyNumbers.length + (unassigned.length ? 1 : 0)
 
   return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
     <div className="qr-roster-board" style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${blockColumns}, minmax(0, 1fr))`,
-      gridAutoRows: 'minmax(0, auto)',
-      alignContent: 'start',
-      gap: 5,
+      gridTemplateColumns: 'minmax(0, 1fr)',
+      gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
+      alignContent: 'stretch',
+      gap: 7,
       overflow: 'hidden',
     }}>
       {partyNumbers.map(party => {
         const members = fighters.filter(f => f.party === party)
         const palette = paletteFor(party)
-        return <section key={party} aria-label={`${party}組`} style={{
+        const memberColumns = members.length <= 2 ? members.length : members.length <= 6 ? 3 : members.length <= 12 ? 4 : 5
+        return <section key={party} aria-label={`パーティ${party}`} style={{
           minWidth: 0,
-          padding: 4,
-          border: `2px solid ${palette.accent}`,
-          borderRadius: 4,
-          background: `linear-gradient(180deg, ${palette.tint}, rgba(2,16,67,.72))`,
-          boxShadow: `inset 0 0 0 1px ${palette.accent}22, 0 0 8px ${palette.accent}18`,
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateRows: 'auto minmax(0, 1fr)',
+          padding: 5,
+          border: `3px double ${palette.accent}`,
+          borderRadius: 5,
+          background: `linear-gradient(180deg, ${palette.tint}, rgba(2,16,67,.9) 58%)`,
+          boxShadow: `inset 0 0 0 1px ${palette.accent}33, 0 0 10px ${palette.accent}22`,
+          overflow: 'hidden',
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 4,
-            marginBottom: 3,
+            gap: 8,
+            minHeight: compact ? 20 : 24,
+            margin: '-1px -1px 5px',
+            padding: compact ? '3px 7px' : '4px 8px',
+            borderBottom: `2px solid ${palette.accent}`,
+            background: `linear-gradient(90deg, ${palette.tint}, rgba(3,22,83,.22))`,
             color: palette.accent,
-            fontSize: compact ? 10 : 11,
-            fontWeight: 900,
-            lineHeight: 1.05,
             textShadow: '1px 1px 0 #00103f',
           }}>
-            <span>◆ {party}組</span><span>{members.length}人</span>
+            <strong style={{
+              fontSize: compact ? 13 : 16,
+              lineHeight: 1,
+              fontWeight: 950,
+              letterSpacing: '.04em',
+            }}>パーティ{party}</strong>
+            <span style={{
+              fontSize: compact ? 10 : 12,
+              lineHeight: 1,
+              fontWeight: 800,
+              color: '#fff',
+            }}>{members.length}人</span>
           </div>
           <div style={{
+            minWidth: 0,
+            minHeight: 0,
             display: 'grid',
-            gridTemplateColumns: `repeat(${Math.min(memberColumns, Math.max(1, members.length))}, minmax(0, 1fr))`,
-            gap: 3,
+            gridTemplateColumns: `repeat(${Math.max(1, memberColumns)}, minmax(0, 1fr))`,
+            gridAutoRows: 'minmax(0, 1fr)',
+            gap: 4,
           }}>
             {members.map(f => <FighterStatus
               key={f.id}
@@ -203,28 +224,35 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
               targets={targets}
               compact={true}
               reduced={reduced}
+              insidePartyBlock={true}
             />)}
           </div>
         </section>
       })}
       {unassigned.length > 0 && <section aria-label="未決定" style={{
         minWidth: 0,
-        padding: 4,
-        border: '1px dashed rgba(220,232,255,.42)',
-        borderRadius: 4,
-        background: 'rgba(2,16,67,.36)',
-        gridColumn: blockColumns > 1 && unassigned.length > 4 ? '1 / -1' : undefined,
+        minHeight: 0,
+        display: 'grid',
+        gridTemplateRows: 'auto minmax(0, 1fr)',
+        padding: 5,
+        border: '2px dashed rgba(220,232,255,.45)',
+        borderRadius: 5,
+        background: 'rgba(2,16,67,.42)',
+        overflow: 'hidden',
       }}>
         <div style={{
-          marginBottom: 3,
+          marginBottom: 4,
           color: '#b8c9ef',
-          fontSize: compact ? 9 : 10,
-          fontWeight: 700,
+          fontSize: compact ? 10 : 12,
+          fontWeight: 800,
           lineHeight: 1.05,
-        }}>まだ決まっていない仲間</div>
+        }}>振り分け待ち</div>
         <div style={{
+          minWidth: 0,
+          minHeight: 0,
           display: 'grid',
           gridTemplateColumns: `repeat(${density === 'mass' ? 5 : density === 'crowd' ? 4 : density === 'pack' ? 3 : 2}, minmax(0, 1fr))`,
+          gridAutoRows: 'minmax(0, 1fr)',
           gap: 3,
         }}>
           {unassigned.map(f => <FighterStatus
