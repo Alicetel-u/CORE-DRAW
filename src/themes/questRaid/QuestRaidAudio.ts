@@ -16,7 +16,7 @@ export class QuestRaidAudio {
   cue(type: QuestBattleEvent['type'] | 'cursor' | 'confirm' | 'damage' | 'victory' | 'near_death' | 'battle_start') {
     const pitches: Record<string, number[]> = {
       cursor: [680], confirm: [440, 660], intro: [110, 165, 220], battle_start: [110, 165, 220],
-      player_attack: [650, 220], player_spell: [330, 550, 880], player_heal: [300, 450, 600], player_item: [390, 280, 520],
+      player_attack: [650, 220], player_spell: [330, 550, 880], player_skill: [480, 360, 620], player_heal: [300, 450, 600], player_item: [390, 280, 520],
       boss_attack: [90, 160, 55, 220], boss_aoe: [70, 140, 210, 50], damage: [180, 80], near_death: [880, 440],
       knockout: [220, 140, 70], boss_enrage: [80, 110, 80], final_strike: [440, 880, 1320],
       boss_defeat: [180, 120, 80, 40], result: [392, 494, 587, 784], victory: [392, 494, 587, 784], formation: [440],

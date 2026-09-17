@@ -69,7 +69,7 @@ function paint(
   const age = elapsed - event.at
   const fx = event.fx ?? event.duration
   const settled = event.type === 'result'
-  const allyAct = !settled && ['player_attack', 'player_spell', 'player_heal', 'player_item', 'final_strike'].includes(event.type) && age < fx
+  const allyAct = !settled && ['player_attack', 'player_spell', 'player_skill', 'player_heal', 'player_item', 'final_strike'].includes(event.type) && age < fx
   const impactStart = event.type === 'final_strike' ? .3 : event.effect && isAllySkillEffect(event.effect) ? ALLY_IMPACT_START[event.effect] ?? 0 : 0
   const impactAge = age - fx * impactStart
   const hit = allyAct && event.type !== 'player_heal' && !SUPPORT_EFFECTS.has(event.effect ?? '') && impactAge >= 0 && impactAge < Math.min(180, fx * .3)

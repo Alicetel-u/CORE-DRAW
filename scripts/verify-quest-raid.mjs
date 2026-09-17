@@ -12,6 +12,22 @@ const {resolveDraw}=await import('../src/core/drawEngine.ts')
 const {createQuestBattleScript}=await import('../src/themes/questRaid/questRaidBattle.ts')
 const {hpState}=await import('../src/themes/questRaid/questRaidEvents.ts')
 const {playQuestRaidBattle}=await import('../src/themes/questRaid/questRaidDirector.ts')
+const {ALLY_SKILLS,COMMAND_INDEX}=await import('../src/themes/questRaid/questRaidSkills.ts')
+const commandBySkill={
+  rocket:'player_attack',spin:'player_attack',
+  beam:'player_spell',
+  yank:'player_skill',cheer:'player_skill',dance:'player_skill',nap:'player_skill',
+  plaster:'player_item',box:'player_item',candy:'player_item',coin:'player_item',
+  water:'player_spell',
+}
+for(const [id,type] of Object.entries(commandBySkill))assert.equal(ALLY_SKILLS[id].type,type,`${id} command`)
+assert.equal(ALLY_SKILLS.plaster.kind,'heal')
+assert.equal(ALLY_SKILLS.plaster.mp,undefined)
+assert.equal(COMMAND_INDEX.player_attack,0)
+assert.equal(COMMAND_INDEX.player_spell,1)
+assert.equal(COMMAND_INDEX.player_skill,2)
+assert.equal(COMMAND_INDEX.player_item,3)
+assert.equal(COMMAND_INDEX.boss_attack,undefined)
 const cases=[['single_winner',2,1],['single_winner',5,1],['single_winner',10,1],['single_winner',25,1],['single_winner',50,1],['multi_winner',5,2],['multi_winner',10,3],['multi_winner',50,10],['top_n_ordered',10,3],['top_n_ordered',50,10],['ordered_list',10,10],['ordered_list',50,50],['grouping',10,0],['grouping',50,0],['shuffle_only',10,10],['shuffle_only',50,50],['multi_winner',50,50]]
 const bosses=new Set()
 let scriptCount=0
@@ -52,6 +68,12 @@ for(const [mode,count,winnerCount] of cases)for(let seed=0;seed<20;seed++){
  bosses.add(script.boss.id);scriptCount++
 }
 assert.equal(bosses.size,5)
+const lastPerson=[{id:'solo',name:'Solo'}]
+const lastResult=resolveDraw({drawId:'solo-raid',seed:'solo',mode:'single_winner',participants:lastPerson})
+const lastScript=createQuestBattleScript(lastResult,lastPerson)
+assert.equal(lastScript.fighters.length,1)
+assert.deepEqual(lastScript.survivorIds,['solo'])
+assert.equal(lastScript.events.at(-1).type,'result')
 assert.equal(hpState(51,100),'normal');assert.equal(hpState(50,100),'warning');assert.equal(hpState(25,100),'critical');assert.equal(hpState(0,100),'dead')
 // Drive the actual director with a fake animation clock, including background-tab catch-up and cancellation.
 let time=0,pending,frames=[],reveals=0,completes=0
