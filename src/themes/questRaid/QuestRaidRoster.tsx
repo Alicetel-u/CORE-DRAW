@@ -106,18 +106,28 @@ function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduce
   />
 }
 
-export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, reduced }: {
+function EmptyPartySlot() {
+  return <div aria-hidden="true" style={{
+    minWidth: 0,
+    minHeight: 0,
+    border: '1px dashed rgba(179,194,226,.16)',
+    borderRadius: 3,
+    background: 'rgba(1,11,49,.3)',
+  }} />
+}
+
+export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, reduced, groupSizes }: {
   fighters: Fighter[]
   criticalIds: string[]
   actorId?: string
   targetIds?: string[]
   reduced: boolean
+  groupSizes?: number[]
 }) {
   const density = densityFor(fighters.length)
   const compact = density === 'crowd' || density === 'mass'
   const targets = new Set(targetIds ?? [])
   const ranked = fighters.filter(f => f.rank).sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
-  const partyNumbers = Array.from(new Set(fighters.flatMap(f => f.party ? [f.party] : []))).sort((a, b) => a - b)
 
   if (ranked.length) {
     const rankedIds = new Set(ranked.map(f => f.id))
@@ -138,6 +148,10 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
     </section>
   }
 
+  const grouping = Boolean(groupSizes?.length)
+  const currentPartyNumbers = Array.from(new Set(fighters.flatMap(f => f.party ? [f.party] : []))).sort((a, b) => a - b)
+  const partyNumbers = grouping ? groupSizes!.map((_, index) => index + 1) : currentPartyNumbers
+
   if (!partyNumbers.length) {
     return <section className={`qr-roster qr-density-${density}`} aria-label="なかまのステータス">
       <div className="qr-roster-board">
@@ -154,128 +168,121 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
     </section>
   }
 
-  const unassigned = fighters.filter(f => !f.party)
-  const rowCount = partyNumbers.length + (unassigned.length ? 1 : 0)
+  const assignedCount = fighters.filter(f => f.party).length
+  const totalParties = partyNumbers.length
+  const partyColumns = totalParties <= 3 ? 1 : totalParties <= 6 ? 2 : 3
+  const partyRows = Math.ceil(totalParties / partyColumns)
 
   return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
     <div className="qr-roster-board" style={{
       display: 'grid',
-      gridTemplateColumns: 'minmax(0, 1fr)',
-      gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
-      alignContent: 'stretch',
-      gap: 7,
+      gridTemplateRows: grouping ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr)',
+      gap: 6,
       overflow: 'hidden',
     }}>
-      {partyNumbers.map(party => {
-        const members = fighters.filter(f => f.party === party)
-        const accent = accentFor(party)
-        const memberColumns = members.length <= 2 ? members.length : members.length <= 6 ? 3 : members.length <= 12 ? 4 : 5
-        return <section key={party} aria-label={`パーティ${party}`} style={{
-          minWidth: 0,
-          minHeight: 0,
-          display: 'grid',
-          gridTemplateRows: 'auto minmax(0, 1fr)',
-          padding: 5,
-          border: '1px solid rgba(194,210,242,.28)',
-          borderLeft: `5px solid ${accent}`,
-          borderRadius: 4,
-          background: 'linear-gradient(180deg, rgba(6,28,88,.96), rgba(2,16,67,.96))',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,.035)',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            minHeight: compact ? 20 : 24,
-            margin: '-1px -1px 5px',
-            padding: compact ? '3px 7px' : '4px 8px',
-            borderBottom: '1px solid rgba(194,210,242,.16)',
-            background: 'rgba(255,255,255,.018)',
-            color: '#f3f6ff',
-            textShadow: '1px 1px 0 #00103f',
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-              <i aria-hidden="true" style={{
-                width: compact ? 7 : 8,
-                height: compact ? 7 : 8,
-                flex: '0 0 auto',
-                borderRadius: 2,
-                background: accent,
-              }} />
-              <strong style={{
-                fontSize: compact ? 13 : 16,
-                lineHeight: 1,
-                fontWeight: 950,
-                letterSpacing: '.04em',
-              }}>パーティ{party}</strong>
-            </span>
-            <span style={{
-              fontSize: compact ? 10 : 12,
-              lineHeight: 1,
-              fontWeight: 700,
-              color: '#b9c6e3',
-            }}>{members.length}人</span>
-          </div>
-          <div style={{
-            minWidth: 0,
-            minHeight: 0,
-            display: 'grid',
-            gridTemplateColumns: `repeat(${Math.max(1, memberColumns)}, minmax(0, 1fr))`,
-            gridAutoRows: 'minmax(0, 1fr)',
-            gap: 4,
-          }}>
-            {members.map(f => <FighterStatus
-              key={f.id}
-              fighter={f}
-              criticalIds={criticalIds}
-              actorId={actorId}
-              targets={targets}
-              compact={true}
-              reduced={reduced}
-              insidePartyBlock={true}
-            />)}
-          </div>
-        </section>
-      })}
-      {unassigned.length > 0 && <section aria-label="未決定" style={{
+      {grouping && <div style={{
+        minHeight: compact ? 20 : 24,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        padding: compact ? '3px 5px' : '4px 6px',
+        borderBottom: '1px solid rgba(194,210,242,.14)',
+        color: '#dfe7fb',
+        fontSize: compact ? 10 : 12,
+        fontWeight: 800,
+        lineHeight: 1,
+      }}>
+        <span>パーティ編成</span>
+        <span style={{ color: '#98a8cc', fontWeight: 700 }}>決定 {assignedCount}/{fighters.length}</span>
+      </div>}
+      <div style={{
         minWidth: 0,
         minHeight: 0,
         display: 'grid',
-        gridTemplateRows: 'auto minmax(0, 1fr)',
-        padding: 5,
-        border: '1px dashed rgba(194,210,242,.3)',
-        borderRadius: 4,
-        background: 'rgba(2,16,67,.5)',
+        gridTemplateColumns: `repeat(${partyColumns}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${partyRows}, minmax(0, 1fr))`,
+        alignContent: 'stretch',
+        gap: 6,
         overflow: 'hidden',
       }}>
-        <div style={{
-          marginBottom: 4,
-          color: '#9eaccd',
-          fontSize: compact ? 10 : 12,
-          fontWeight: 700,
-          lineHeight: 1.05,
-        }}>振り分け待ち</div>
-        <div style={{
-          minWidth: 0,
-          minHeight: 0,
-          display: 'grid',
-          gridTemplateColumns: `repeat(${density === 'mass' ? 5 : density === 'crowd' ? 4 : density === 'pack' ? 3 : 2}, minmax(0, 1fr))`,
-          gridAutoRows: 'minmax(0, 1fr)',
-          gap: 3,
-        }}>
-          {unassigned.map(f => <FighterStatus
-            key={f.id}
-            fighter={f}
-            criticalIds={criticalIds}
-            actorId={actorId}
-            targets={targets}
-            compact={compact}
-            reduced={reduced}
-          />)}
-        </div>
-      </section>}
+        {partyNumbers.map(party => {
+          const members = fighters.filter(f => f.party === party)
+          const expectedSize = Math.max(1, groupSizes?.[party - 1] ?? members.length)
+          const accent = accentFor(party)
+          const memberColumns = expectedSize <= 2 ? expectedSize : expectedSize <= 6 ? 3 : expectedSize <= 12 ? 4 : 5
+          const memberRows = Math.max(1, Math.ceil(expectedSize / Math.max(1, memberColumns)))
+          const slots = Array.from({ length: expectedSize }, (_, index) => members[index] ?? null)
+          return <section key={party} aria-label={`パーティ${party}`} style={{
+            minWidth: 0,
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateRows: 'auto minmax(0, 1fr)',
+            padding: 5,
+            border: '1px solid rgba(194,210,242,.28)',
+            borderLeft: `5px solid ${accent}`,
+            borderRadius: 4,
+            background: 'linear-gradient(180deg, rgba(6,28,88,.96), rgba(2,16,67,.96))',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.035)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              minHeight: compact ? 20 : 24,
+              margin: '-1px -1px 5px',
+              padding: compact ? '3px 7px' : '4px 8px',
+              borderBottom: '1px solid rgba(194,210,242,.16)',
+              background: 'rgba(255,255,255,.018)',
+              color: '#f3f6ff',
+              textShadow: '1px 1px 0 #00103f',
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                <i aria-hidden="true" style={{
+                  width: compact ? 7 : 8,
+                  height: compact ? 7 : 8,
+                  flex: '0 0 auto',
+                  borderRadius: 2,
+                  background: accent,
+                }} />
+                <strong style={{
+                  fontSize: compact ? 13 : 16,
+                  lineHeight: 1,
+                  fontWeight: 950,
+                  letterSpacing: '.04em',
+                }}>パーティ{party}</strong>
+              </span>
+              <span style={{
+                fontSize: compact ? 10 : 12,
+                lineHeight: 1,
+                fontWeight: 700,
+                color: '#b9c6e3',
+              }}>{members.length}/{expectedSize}</span>
+            </div>
+            <div style={{
+              minWidth: 0,
+              minHeight: 0,
+              display: 'grid',
+              gridTemplateColumns: `repeat(${Math.max(1, memberColumns)}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${memberRows}, minmax(0, 1fr))`,
+              gap: 4,
+            }}>
+              {slots.map((fighter, index) => fighter ? <FighterStatus
+                key={fighter.id}
+                fighter={fighter}
+                criticalIds={criticalIds}
+                actorId={actorId}
+                targets={targets}
+                compact={true}
+                reduced={reduced}
+                insidePartyBlock={true}
+              /> : <EmptyPartySlot key={`party-${party}-slot-${index}`} />)}
+            </div>
+          </section>
+        })}
+      </div>
     </div>
   </section>
 }
