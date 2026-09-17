@@ -29,24 +29,22 @@ type OrderTheme = {
 }
 
 const GROUP_THEMES: GroupTheme[] = [
-  { setup: 'この皆さん、なんだか話が早そうです♪', reaction: 'まだ誰とも話してないけど', followUp: 'そこはこれから仲良くなってください♪' },
-  { setup: 'この組み合わせ、かなりバランスが良さそうです♪', reaction: 'どのへんが？', followUp: 'えっと……全体的な雰囲気です！' },
-  { setup: 'こちら、誰かが自然にまとめてくれそうな組です♪', reaction: '誰が？', followUp: 'それを見つけるところから冒険ですね♪' },
-  { setup: 'この皆さんなら、道に迷っても楽しそうです♪', reaction: '迷う前提なんだ', followUp: '地図も大事ですけど、思い出も大事なので♪' },
-  { setup: 'なんとなく、宝箱の前でちゃんと相談できそうです♪', reaction: 'そこ評価されるんだ', followUp: '宝箱は友情が試されますからね♪' },
-  { setup: 'この組、打ち上げまで含めて完成度が高い気がします♪', reaction: '冒険まだ始まってないよ', followUp: '先に楽しみを決めておくタイプなんです♪' },
-  { setup: 'こちらは、静かでも妙に意思疎通できそうな皆さんです♪', reaction: 'それ本当に分かる？', followUp: 'はい。たぶん目で会話できます♪' },
-  { setup: 'この皆さん、勢いで難所を越えそうです♪', reaction: '作戦は？', followUp: '勢いが足りなくなったら考えましょう♪' },
-  { setup: 'こちら、妙に安心感のある並びになりました♪', reaction: '根拠は？', followUp: '見てたら安心してきたので、たぶん大丈夫です♪' },
-  { setup: 'なんだか運命っぽいので、この皆さんでお願いします♪', reaction: '運命って便利だな', followUp: '説明しにくい時に、とても助かります♪' },
-  { setup: '酒場で同じテーブルに座っても違和感がなさそうです♪', reaction: '基準が酒場なんだ', followUp: 'ここ酒場ですからね♪' },
-  { setup: 'お名前を並べた時の響きがいいので、この組です♪', reaction: 'そんな決め方ある？', followUp: '今日からあります♪' },
+  { setup: 'このパーティ、なんだか話が早そうです♪', reaction: 'まだ誰とも話してないけど', followUp: 'そこは今から実績を作ってください♪' },
+  { setup: 'かなりバランスが良さそうな気がします♪', reaction: 'どのへんが？', followUp: 'えっと……全体的な雰囲気です！' },
+  { setup: '誰かが自然にまとめてくれそうです♪', reaction: '誰が？', followUp: 'それを見つけるところから冒険ですね♪' },
+  { setup: '道に迷っても楽しそうな組です♪', reaction: '迷う前提なんだ', followUp: '地図も大事ですけど、思い出も大事なので♪' },
+  { setup: '宝箱の前でちゃんと相談できそうです♪', reaction: 'そこ評価されるんだ', followUp: '宝箱は友情が試されますからね♪' },
+  { setup: '打ち上げまで含めて完成度が高そうです♪', reaction: '冒険まだ始まってないよ', followUp: '先に楽しみを決めておくタイプなんです♪' },
+  { setup: '静かでも妙に意思疎通できそうです♪', reaction: 'それ本当に分かる？', followUp: 'はい。たぶん目で会話できます♪' },
+  { setup: '勢いで難所を越えそうです♪', reaction: '作戦は？', followUp: '勢いが足りなくなったら考えましょう♪' },
+  { setup: '妙に安心感のある組になりそうです♪', reaction: '根拠は？', followUp: '見てたら安心してきたので、たぶん大丈夫です♪' },
+  { setup: 'なんだか運命っぽい組です♪', reaction: '運命って便利だな', followUp: '説明しにくい時に、とても助かります♪' },
+  { setup: '同じテーブルに座っても違和感がなさそうです♪', reaction: '基準が酒場なんだ', followUp: 'ここ酒場ですからね♪' },
+  { setup: 'お名前を並べた時の響きが良い組です♪', reaction: 'そんな決め方ある？', followUp: '今日からあります♪' },
   { setup: '店員の勘が、ここだと言っています♪', reaction: 'その勘、当たるの？', followUp: '昨日はまあまあでした♪' },
-  { setup: 'この皆さん、役割は現地で自然に決まりそうです♪', reaction: '今決めないんだ', followUp: '自然発生にちょっと期待しています♪' },
-  { setup: 'こちら、全員それぞれ主人公っぽくて良いですね♪', reaction: 'まとまる？', followUp: 'そこが見どころです♪' },
-  { setup: 'この組は、困った時ほど妙に強そうです♪', reaction: '普段は？', followUp: '普段はのんびりでいいと思います♪' },
-  { setup: 'なんとなく、この皆さんは同じタイミングで休憩しそうです♪', reaction: '冒険の基準そこ？', followUp: '休憩の相性、大事ですよ♪' },
-  { setup: 'こちら、誰かがボケても誰かが拾ってくれそうです♪', reaction: '冒険の話だよね？', followUp: 'もちろんです。たぶん半分くらいは♪' },
+  { setup: '役割は現地で自然に決まりそうです♪', reaction: '今決めないんだ', followUp: '自然発生にちょっと期待しています♪' },
+  { setup: '全員それぞれ主人公っぽくて良いですね♪', reaction: 'まとまる？', followUp: 'そこが見どころです♪' },
+  { setup: '困った時ほど妙に強そうな組です♪', reaction: '普段は？', followUp: '普段はのんびりでいいと思います♪' },
 ]
 
 const ORDER_THEMES: OrderTheme[] = [
@@ -58,22 +56,22 @@ const ORDER_THEMES: OrderTheme[] = [
   { setup: (p) => `${p}番目、この位置がいちばん似合う気がします♪`, reaction: '位置が似合うって何', followUp: '立ってみると分かるタイプのやつです♪' },
   { setup: (p) => `${p}番目、なんとなく呼びやすい順になってきました♪`, reaction: '何基準で呼んでるの？', followUp: 'そこを聞くと急に難しくなります♪' },
   { setup: (p) => `${p}番目、前後のつながりがとても自然です♪`, reaction: 'まだ並んでないけど', followUp: '頭の中ではもう完成しています♪' },
-  { setup: (p) => `${p}番目、この辺りにいると落ち着きそうです♪`, reaction: '本人の感想は？', followUp: 'あとで聞いておきますね♪' },
+  { setup: (p) => `${p}番目、この辺りにいると落ち着きそうです♪`, reaction: '本人の感想は？', followUp: '今から聞きますね♪' },
   { setup: (p) => `${p}番目、ここだけ妙に空いて見えたんです♪`, reaction: '今から埋めるんだ', followUp: 'ぴったりでした♪' },
   { setup: (p) => `${p}番目、なんとなく列が喜びそうです♪`, reaction: '列に感情あるの？', followUp: '今日の列はちょっとあります♪' },
   { setup: (p) => `${p}番目、ここに入ると完成度が上がります♪`, reaction: '何点から何点？', followUp: 'そこは気持ちで採点しています♪' },
 ]
 
 const GROUP_OPENERS = [
-  'それでは、パーティ分けを始めますね♪\nちゃんと考えますので、ご安心ください！',
-  '今日はパーティ分けですね♪\nこういう組み合わせを考えるの、けっこう好きなんです！',
-  'では皆さん、少しだけお付き合いください♪\nいい感じの組にしてみますね！',
+  'それでは、パーティ分けを始めますね♪\n今日は全員、お名前を呼んで決めていきます！',
+  '今日はパーティ分けですね♪\nひとりずつお呼びしますので、順番にお願いします！',
+  'では編成を始めます♪\nまとめて決めたりしません。ちゃんと全員見ていきますね！',
 ]
 
 const GROUP_SECOND_LINES = [
   '基準ですか？\n相性と、雰囲気と……最後はちょっとだけ勘です♪',
-  'できるだけ良い感じに分けますね♪\n最後のひと押しだけ、勘に任せます！',
-  '安心してください♪\n雑には決めません。ちょっと自由に決めるだけです！',
+  '決まった方から、左のパーティ枠へ入ってもらいますね♪',
+  '安心してください♪\n雑には決めません。判断基準が少し自由なだけです！',
 ]
 
 const SHUFFLE_OPENERS = [
@@ -89,15 +87,39 @@ const SHUFFLE_SECOND_LINES = [
 ]
 
 const GROUP_CLOSERS = [
-  'はい、全パーティ決まりました♪\nかなり良い感じです。あたしの勘も喜んでます！',
-  'これでパーティ完成です♪\nみなさん、仲良く冒険してきてくださいね！',
-  'はい、きれいに分かれました♪\n理由は途中ちょっと怪しかったですけど、結果は自信あります！',
+  'はい、全員のお名前を呼び終わりました♪\nこれでパーティ分け完了です！',
+  'これで全員、行き先が決まりました♪\nみなさん、仲良く冒険してきてくださいね！',
+  'はい、ひとり残らず決まりました♪\n途中の理由は少し不思議でしたけど、結果には自信あります！',
 ]
 
 const SHUFFLE_CLOSERS = [
   'はい、全員の順番が決まりました♪\n上から順に、その並びでお願いします！',
   'これで全員そろいました♪\n最後までちゃんと決めましたよ！',
   'はい、並び替え完了です♪\n金枠の番号どおりで決定です！',
+]
+
+const MEMBER_REACTIONS = [
+  'はい、そこね',
+  '了解。行ってくる',
+  'その組なんだ',
+  '分かった、任せて',
+  'なるほど……たぶん',
+  'まあ、面白そう',
+  '今の理由ちょっと気になるけど了解',
+  '店員さんがそう言うなら行くよ',
+  'そこに入ればいいんだね',
+  'なんか冒険っぽくなってきた',
+  'その勘を信じていいんだな？',
+  'よし、やってみよう',
+]
+
+const MEMBER_FOLLOWUPS = [
+  'はい、その調子です♪',
+  '大丈夫です。たぶん良い感じになります♪',
+  'ありがとうございます♪ ではそのままお願いします！',
+  'えへへ、細かい理由は冒険中に見つかるかもしれません♪',
+  'その反応なら、もう半分くらい成功です♪',
+  'いいですね。だんだん形になってきました♪',
 ]
 
 function pick<T>(items: readonly T[], random: Random) {
@@ -121,46 +143,86 @@ function hostess(line: string) {
   return `【店員】\n「${line}」`
 }
 
-function representativeNames(ids: string[], fighters: Map<string, Fighter>) {
-  return ids.map((id) => fighters.get(id)?.name).filter((name): name is string => Boolean(name))
+function compactExchange(party: number, name: string, reaction: string) {
+  return `【店員】\n「パーティ${party}へ、${name}さん♪」\n【${name}】\n「${reaction}」`
 }
 
 function groupingBeats(result: DrawResult, fighters: Fighter[], random: Random): TavernDialogueBeat[] {
   const lookup = byId(fighters)
   const groups = result.groups ?? []
+  const originalOrder = fighters.map(fighter => fighter.id)
   const themePool: GroupTheme[] = []
+  const assigned: string[] = []
+  const assignedPartyById: Record<string, number> = {}
+  const richConversation = fighters.length <= 16
   const beats: TavernDialogueBeat[] = [
-    { type: 'intro', phase: 'INTRO', message: hostess(pick(GROUP_OPENERS, random)), pose: 'idle', effectMs: 320, holdMs: 420 },
-    { type: 'formation', phase: 'SKIRMISH', message: hostess(pick(GROUP_SECOND_LINES, random)), pose: 'cheer', effectMs: 320, holdMs: 420 },
+    { type: 'intro', phase: 'INTRO', message: hostess(pick(GROUP_OPENERS, random)), pose: 'idle', effectMs: 260, holdMs: 260 },
+    { type: 'formation', phase: 'SKIRMISH', message: hostess(pick(GROUP_SECOND_LINES, random)), pose: 'cheer', effectMs: 240, holdMs: 220 },
   ]
 
-  groups.forEach((group, index) => {
-    const names = representativeNames(group, lookup)
-    if (!names.length) return
-    const shown = names.slice(0, Math.min(3, names.length))
-    const rest = Math.max(0, names.length - shown.length)
-    const call = `${index + 1}組目は、${shown.join('さん、')}さん${rest ? `たち${rest}人` : ''}でお願いします♪`
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(call), pose: 'point', effectMs: 300, holdMs: 400 })
+  groups.forEach((group, groupIndex) => {
+    const party = groupIndex + 1
+    const members = group.map(id => lookup.get(id)).filter((fighter): fighter is Fighter => Boolean(fighter))
+    if (!members.length) return
 
     const theme = takeTheme(themePool, GROUP_THEMES, random)
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(theme.setup), pose: 'cheer', effectMs: 300, holdMs: 360 })
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: person(names[0], theme.reaction), pose: 'idle', effectMs: 240, holdMs: 300 })
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(theme.followUp), pose: random() < .45 ? 'cheer' : 'idle', effectMs: 280, holdMs: 360 })
+    beats.push({
+      type: 'formation', phase: 'SKIRMISH',
+      message: hostess(`では、パーティ${party}を作りますね♪\n${theme.setup}`),
+      pose: 'cheer', effectMs: 220, holdMs: 220,
+    })
 
-    if (names.length >= 3 && fighters.length <= 16 && random() < .55) {
-      const extra = pick([
-        'なんか不安になってきた',
-        'まあ、ちょっと面白そう',
-        '店員さんが楽しそうだからいいか',
-        'その自信どこから来るの？',
-        'とりあえずやってみるか',
-      ], random)
-      beats.push({ type: 'formation', phase: 'SKIRMISH', message: person(names[1], extra), pose: 'idle', effectMs: 220, holdMs: 280 })
+    members.forEach((fighter, memberIndex) => {
+      assigned.push(fighter.id)
+      assignedPartyById[fighter.id] = party
+      const assignedSet = new Set(assigned)
+      const order = [...assigned, ...originalOrder.filter(id => !assignedSet.has(id))]
+      const reaction = memberIndex === 0 ? theme.reaction : pick(MEMBER_REACTIONS, random)
+
+      // rankById is intentionally used as a transport for progressive party assignment.
+      // questRaidDirector recognizes the "パーティNへ" hostess message and writes these values to fighter.party, not fighter.rank.
+      if (richConversation) {
+        beats.push({
+          type: 'formation', phase: 'SKIRMISH',
+          message: hostess(`パーティ${party}へ、${fighter.name}さん♪\nこちらへどうぞ！`),
+          pose: 'point', effectMs: 170, holdMs: 120,
+          order,
+          rankById: { ...assignedPartyById },
+        })
+        beats.push({
+          type: 'formation', phase: 'SKIRMISH',
+          message: person(fighter.name, reaction),
+          pose: 'idle', effectMs: 130, holdMs: 100,
+        })
+        if (members.length <= 5 || memberIndex === members.length - 1 || memberIndex % 3 === 1) {
+          beats.push({
+            type: 'formation', phase: 'SKIRMISH',
+            message: hostess(memberIndex === members.length - 1 ? theme.followUp : pick(MEMBER_FOLLOWUPS, random)),
+            pose: random() < .4 ? 'cheer' : 'idle', effectMs: 140, holdMs: 100,
+          })
+        }
+      } else {
+        beats.push({
+          type: 'formation', phase: 'SKIRMISH',
+          message: compactExchange(party, fighter.name, reaction),
+          pose: 'point', effectMs: 150, holdMs: 80,
+          order,
+          rankById: { ...assignedPartyById },
+        })
+      }
+    })
+
+    if (!richConversation) {
+      beats.push({
+        type: 'formation', phase: 'SKIRMISH',
+        message: hostess(`パーティ${party}、これで全員です♪\n${theme.followUp}`),
+        pose: 'cheer', effectMs: 160, holdMs: 100,
+      })
     }
   })
 
   beats.push({
-    type: 'result', phase: 'RESULT', message: hostess(pick(GROUP_CLOSERS, random)), pose: 'cheer', effectMs: 320, holdMs: 560,
+    type: 'result', phase: 'RESULT', message: hostess(pick(GROUP_CLOSERS, random)), pose: 'cheer', effectMs: 260, holdMs: 360,
     order: groups.flat(),
   })
   return beats
