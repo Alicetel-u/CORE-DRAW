@@ -18,6 +18,7 @@ const PARTY_ACCENTS = [
 ]
 
 const RANK_GOLD = '#ffd65a'
+const PARTY_BOX_SIZE = 124
 
 function accentFor(party: number) {
   return PARTY_ACCENTS[(party - 1) % PARTY_ACCENTS.length]
@@ -106,14 +107,76 @@ function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduce
   />
 }
 
-function EmptyPartySlot() {
-  return <div aria-hidden="true" style={{
-    minWidth: 0,
-    minHeight: 0,
-    border: '1px dashed rgba(179,194,226,.16)',
-    borderRadius: 3,
-    background: 'rgba(1,11,49,.3)',
-  }} />
+function PartyBox({ party, expectedSize, members }: {
+  party: number
+  expectedSize: number
+  members: Fighter[]
+}) {
+  const accent = accentFor(party)
+  const slots = Array.from({ length: expectedSize }, (_, index) => members[index]?.name ?? '')
+
+  return <section aria-label={`パーティ${party}`} style={{
+    width: PARTY_BOX_SIZE,
+    height: PARTY_BOX_SIZE,
+    flex: `0 0 ${PARTY_BOX_SIZE}px`,
+    boxSizing: 'border-box',
+    display: 'grid',
+    gridTemplateRows: '30px minmax(0, 1fr)',
+    border: '2px solid rgba(230,237,255,.78)',
+    borderTopColor: accent,
+    borderRadius: 4,
+    background: '#061b59',
+    overflow: 'hidden',
+    boxShadow: '0 2px 0 #010b35',
+  }}>
+    <header style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 5,
+      padding: '0 7px',
+      borderBottom: '1px solid rgba(230,237,255,.24)',
+      background: '#08236d',
+      color: '#fff',
+      lineHeight: 1,
+    }}>
+      <strong style={{ fontSize: 13, fontWeight: 950 }}>パーティ{party}</strong>
+      <span style={{ fontSize: 10, color: '#b9c6e3' }}>{members.length}/{expectedSize}</span>
+    </header>
+    <div style={{
+      minHeight: 0,
+      overflowY: 'auto',
+      padding: '5px 7px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3,
+      scrollbarWidth: 'thin',
+    }}>
+      {slots.map((name, index) => <div key={index} style={{
+        minHeight: 17,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        color: name ? '#fff' : '#52658f',
+        fontSize: 12,
+        lineHeight: 1.15,
+        overflow: 'hidden',
+      }}>
+        <span aria-hidden="true" style={{
+          width: 4,
+          height: 4,
+          flex: '0 0 auto',
+          background: name ? accent : '#33466f',
+        }} />
+        <span style={{
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>{name || '────────'}</span>
+      </div>)}
+    </div>
+  </section>
 }
 
 export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, reduced, groupSizes }: {
@@ -168,121 +231,66 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
     </section>
   }
 
-  const assignedCount = fighters.filter(f => f.party).length
-  const totalParties = partyNumbers.length
-  const partyColumns = totalParties <= 3 ? 1 : totalParties <= 6 ? 2 : 3
-  const partyRows = Math.ceil(totalParties / partyColumns)
-
-  return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
-    <div className="qr-roster-board" style={{
-      display: 'grid',
-      gridTemplateRows: grouping ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr)',
-      gap: 6,
-      overflow: 'hidden',
-    }}>
-      {grouping && <div style={{
-        minHeight: compact ? 20 : 24,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-        padding: compact ? '3px 5px' : '4px 6px',
-        borderBottom: '1px solid rgba(194,210,242,.14)',
-        color: '#dfe7fb',
-        fontSize: compact ? 10 : 12,
-        fontWeight: 800,
-        lineHeight: 1,
-      }}>
-        <span>パーティ編成</span>
-        <span style={{ color: '#98a8cc', fontWeight: 700 }}>決定 {assignedCount}/{fighters.length}</span>
-      </div>}
+  if (grouping) {
+    const assignedCount = fighters.filter(f => f.party).length
+    return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
       <div style={{
+        width: '100%',
+        height: '100%',
         minWidth: 0,
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: `repeat(${partyColumns}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${partyRows}, minmax(0, 1fr))`,
-        alignContent: 'stretch',
+        gridTemplateRows: '28px minmax(0, 1fr)',
         gap: 6,
-        overflow: 'hidden',
       }}>
-        {partyNumbers.map(party => {
-          const members = fighters.filter(f => f.party === party)
-          const expectedSize = Math.max(1, groupSizes?.[party - 1] ?? members.length)
-          const accent = accentFor(party)
-          const memberColumns = expectedSize <= 2 ? expectedSize : expectedSize <= 6 ? 3 : expectedSize <= 12 ? 4 : 5
-          const memberRows = Math.max(1, Math.ceil(expectedSize / Math.max(1, memberColumns)))
-          const slots = Array.from({ length: expectedSize }, (_, index) => members[index] ?? null)
-          return <section key={party} aria-label={`パーティ${party}`} style={{
-            minWidth: 0,
-            minHeight: 0,
-            display: 'grid',
-            gridTemplateRows: 'auto minmax(0, 1fr)',
-            padding: 5,
-            border: '1px solid rgba(194,210,242,.28)',
-            borderLeft: `5px solid ${accent}`,
-            borderRadius: 4,
-            background: 'linear-gradient(180deg, rgba(6,28,88,.96), rgba(2,16,67,.96))',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.035)',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-              minHeight: compact ? 20 : 24,
-              margin: '-1px -1px 5px',
-              padding: compact ? '3px 7px' : '4px 8px',
-              borderBottom: '1px solid rgba(194,210,242,.16)',
-              background: 'rgba(255,255,255,.018)',
-              color: '#f3f6ff',
-              textShadow: '1px 1px 0 #00103f',
-            }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                <i aria-hidden="true" style={{
-                  width: compact ? 7 : 8,
-                  height: compact ? 7 : 8,
-                  flex: '0 0 auto',
-                  borderRadius: 2,
-                  background: accent,
-                }} />
-                <strong style={{
-                  fontSize: compact ? 13 : 16,
-                  lineHeight: 1,
-                  fontWeight: 950,
-                  letterSpacing: '.04em',
-                }}>パーティ{party}</strong>
-              </span>
-              <span style={{
-                fontSize: compact ? 10 : 12,
-                lineHeight: 1,
-                fontWeight: 700,
-                color: '#b9c6e3',
-              }}>{members.length}/{expectedSize}</span>
-            </div>
-            <div style={{
-              minWidth: 0,
-              minHeight: 0,
-              display: 'grid',
-              gridTemplateColumns: `repeat(${Math.max(1, memberColumns)}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${memberRows}, minmax(0, 1fr))`,
-              gap: 4,
-            }}>
-              {slots.map((fighter, index) => fighter ? <FighterStatus
-                key={fighter.id}
-                fighter={fighter}
-                criticalIds={criticalIds}
-                actorId={actorId}
-                targets={targets}
-                compact={true}
-                reduced={reduced}
-                insidePartyBlock={true}
-              /> : <EmptyPartySlot key={`party-${party}-slot-${index}`} />)}
-            </div>
-          </section>
-        })}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 4px',
+          color: '#dfe7fb',
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1,
+        }}>
+          <span>パーティ編成</span>
+          <span style={{ color: '#98a8cc', fontWeight: 700 }}>決定 {assignedCount}/{fighters.length}</span>
+        </div>
+        <div style={{
+          minWidth: 0,
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateColumns: `repeat(auto-fill, ${PARTY_BOX_SIZE}px)`,
+          gridAutoRows: `${PARTY_BOX_SIZE}px`,
+          justifyContent: 'start',
+          alignContent: 'start',
+          gap: 8,
+          overflow: 'auto',
+          padding: '2px 2px 8px',
+          scrollbarWidth: 'thin',
+        }}>
+          {partyNumbers.map(party => <PartyBox
+            key={party}
+            party={party}
+            expectedSize={Math.max(1, groupSizes![party - 1])}
+            members={fighters.filter(f => f.party === party)}
+          />)}
+        </div>
       </div>
+    </section>
+  }
+
+  return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
+    <div className="qr-roster-board">
+      {fighters.map(f => <FighterStatus
+        key={f.id}
+        fighter={f}
+        criticalIds={criticalIds}
+        actorId={actorId}
+        targets={targets}
+        compact={compact}
+        reduced={reduced}
+      />)}
     </div>
   </section>
 }
