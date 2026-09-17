@@ -20,7 +20,7 @@ export function playQuestRaidBattle(script: QuestBattleScript, audio: QuestRaidA
         if (hpState(hp, f.maxHp) === 'critical' && hpState(f.hp, f.maxHp) !== 'critical') criticalIds.push(f.id)
         return { ...f, hp, mp }
       })
-      if (event.order) { const byId = new Map(fighters.map(f => [f.id, f])); fighters = event.order.map(id => byId.get(id)!) }
+      if (event.order) { const byId = new Map(fighters.map(f => [f.id, f])); fighters = event.order.map(id => byId.get(id)).filter((f): f is Fighter => Boolean(f)) }
       bossHp = event.bossHp ?? bossHp
       // Suppress a burst of stale audio after returning from a background tab.
       if (elapsed - event.at < 200) { audio?.cue(event.type); if (criticalIds.length) audio?.cue('near_death') }

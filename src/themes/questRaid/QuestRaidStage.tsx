@@ -199,6 +199,8 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       actorId={highlight ? event.actorId : undefined}
       targetIds={highlight ? event.targetIds : undefined}
       reduced={reduced}
+      groups={revealed && result?.mode === 'grouping' ? result.groups : undefined}
+      showOrder={Boolean(revealed && result?.mode === 'shuffle_only')}
     />
     <div className="qr-main">
       <QuestRaidBossHp

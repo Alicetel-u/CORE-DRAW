@@ -53,7 +53,15 @@ for(const [mode,count,winnerCount] of cases)for(let seed=0;seed<20;seed++){
  const last=script.events.at(-1)
  assert.equal(script.duration,last.at+last.duration)
  for(let i=1;i<script.events.length;i++)assert.ok(script.events[i].at>=script.events[i-1].at+script.events[i-1].duration,'Events must not overlap')
- if(script.peaceful){assert.ok(script.events.every(e=>!e.hp));assert.ok(script.duration>=4000)}else{
+ if(script.peaceful){
+  assert.ok(script.events.every(e=>!e.hp));assert.ok(script.duration>=4000)
+  if(mode==='grouping'){
+   assert.ok((result.groups?.length??0)>=2)
+   assert.deepEqual(last.order,(result.groups??[]).flat())
+   assert.equal(new Set(last.order).size,count)
+  }
+  if(mode==='shuffle_only')assert.deepEqual(last.order,result.orderedIds)
+ }else{
   assert.equal(bossHp,0);assert.ok(script.duration>=15000);assert.equal(affected.size,count)
   assert.deepEqual([...script.survivorIds].sort(),[...(mode==='ordered_list'?result.orderedIds.slice(0,1):result.winnerIds)].sort())
  }

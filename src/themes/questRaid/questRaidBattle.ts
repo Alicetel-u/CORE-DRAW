@@ -34,7 +34,9 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
   if (peaceful) {
     act('intro', 'INTRO', result.mode === 'grouping' ? 'とうばつたいを\nへんせいしている……' : 'たいれつを\nくみなおしている……', 360)
     for (let i = 0; i < 7; i++) act('formation', 'SKIRMISH', 'なかまたちが\nあつまってきた！', 240, { order: shuffle(fighters.map(f => f.id), random) }, 220)
-    act('result', 'RESULT', result.mode === 'grouping' ? 'とうばつたいが\nけっていした！' : 'たいれつを\nくみなおした！', 280, { order: [...result.orderedIds] })
+    act('result', 'RESULT', result.mode === 'grouping' ? 'とうばつたいが\nけっていした！' : 'たいれつを\nくみなおした！', 280, {
+      order: result.mode === 'grouping' ? (result.groups ?? []).flat() : [...result.orderedIds],
+    })
     return { boss, fighters, events, duration: t, survivorIds, peaceful }
   }
 
