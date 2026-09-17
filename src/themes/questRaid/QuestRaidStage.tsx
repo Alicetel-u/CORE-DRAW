@@ -10,12 +10,20 @@ import { QuestRaidRoster } from './QuestRaidRoster'
 import { QuestRaidHud } from './QuestRaidHud'
 import { QuestRaidResult } from './QuestRaidResult'
 import { QuestRaidBossHp } from './QuestRaidBossHp'
+import hostessIdle from './tavern/assets/tavern-hostess-idle.png'
+import hostessPoint from './tavern/assets/tavern-hostess-point.png'
+import hostessCheer from './tavern/assets/tavern-hostess-cheer.png'
 
 function densityFor(count: number) {
   return count <= 8 ? 'few' : count <= 18 ? 'pack' : count <= 32 ? 'crowd' : 'mass'
 }
 
 const FIELD_BG = new URL('./bosses/battle-bg.png', import.meta.url).href
+const HOSTESS_SPRITES = {
+  idle: hostessIdle,
+  point: hostessPoint,
+  cheer: hostessCheer,
+} as const
 
 function poseOf(frame: QuestFrame | null, age = 0, script: QuestBattleScript | null = null): BossPose {
   const event = frame?.event
@@ -191,6 +199,8 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
   const shake = !reduced && event.type.startsWith('boss_') && event.type !== 'boss_defeat' && event.type !== 'result' && age < 180
   const highlight = age < Math.max(220, event.duration)
   const density = densityFor(fighters.length)
+  const tavernMode = Boolean(script?.peaceful && (result?.mode === 'grouping' || result?.mode === 'shuffle_only'))
+  const hostessPose = event.hostessPose ?? 'idle'
 
   return <div className={`qr-stage qr-density-${density} ${reduced ? 'qr-reduced' : ''} ${shake ? 'qr-shake' : ''}`}>
     <QuestRaidRoster
@@ -211,6 +221,25 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       />
       <div className="qr-boss-area" ref={field}>
         <canvas ref={canvas} aria-label={script && !script.peaceful ? script.boss.name : 'QUEST RAID'} />
+        {tavernMode && <img
+          src={HOSTESS_SPRITES[hostessPose]}
+          alt="酒場の店員"
+          draggable={false}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 0,
+            transform: 'translateX(-50%)',
+            height: '94%',
+            maxWidth: '96%',
+            width: 'auto',
+            objectFit: 'contain',
+            imageRendering: 'pixelated',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            zIndex: 1,
+          }}
+        />}
         {event.type === 'boss_defeat' && <div className="qr-defeat-banner" role="status" style={{ opacity: defeatBannerOpacity(age, event.duration, reduced) }}>
           <span aria-hidden="true">BOSS DEFEATED</span><strong>ボスを たおした！</strong>
         </div>}

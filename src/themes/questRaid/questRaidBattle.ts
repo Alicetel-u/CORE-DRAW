@@ -4,6 +4,7 @@ import { createSeededRandom, shuffle } from './questRaidSeed'
 import type { Fighter, QuestBattleEvent, QuestPhase } from './questRaidEvents'
 import { questBeat } from './questRaidEvents'
 import { pickSkill, type AllySkill } from './questRaidSkills'
+import { createTavernDialogue } from './questRaidTavernDialogue'
 export type QuestBattleScript = { boss: QuestBossDefinition; fighters: Fighter[]; events: QuestBattleEvent[]; duration: number; survivorIds: string[]; peaceful: boolean }
 
 // Presentation only. All selections and rankings come exclusively from DrawResult.
@@ -32,9 +33,13 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
     t += duration
   }
   if (peaceful) {
-    act('intro', 'INTRO', result.mode === 'grouping' ? 'とうばつたいを\nへんせいしている……' : 'たいれつを\nくみなおしている……', 360)
-    for (let i = 0; i < 7; i++) act('formation', 'SKIRMISH', 'なかまたちが\nあつまってきた！', 240, { order: shuffle(fighters.map(f => f.id), random) }, 220)
-    act('result', 'RESULT', result.mode === 'grouping' ? 'とうばつたいが\nけっていした！' : 'たいれつを\nくみなおした！', 280, { order: [...result.orderedIds] })
+    const dialogueRandom = createSeededRandom(result.drawId + 'quest-tavern-dialogue-v2')
+    for (const beat of createTavernDialogue(result, fighters, dialogueRandom)) {
+      act(beat.type, beat.phase, beat.message, beat.effectMs, {
+        hostessPose: beat.pose,
+        order: beat.order,
+      }, beat.holdMs)
+    }
     return { boss, fighters, events, duration: t, survivorIds, peaceful }
   }
 
