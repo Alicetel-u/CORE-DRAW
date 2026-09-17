@@ -11,6 +11,7 @@ export type TavernDialogueBeat = {
   effectMs: number
   holdMs?: number
   order?: string[]
+  rankById?: Record<string, number>
 }
 
 type Random = () => number
@@ -76,15 +77,15 @@ const GROUP_SECOND_LINES = [
 ]
 
 const SHUFFLE_OPENERS = [
-  'それでは、並び順を決めていきますね♪\n前の方が偉いとかではないので気楽にどうぞ！',
-  '今日は並び替えですね♪\nきれいに並ぶところを探していきます！',
-  'では順番を決めましょう♪\n理由もできるだけ考えながら進めますね！',
+  'それでは、並び順を決めていきますね♪\nひとりずつ、ちゃんと見ていきます！',
+  '今日は並び替えですね♪\n上から順番に、ひとりずつ決めていきましょう！',
+  'では順番を決めますね♪\n最後の方まで、ちゃんと全員呼びますからね！',
 ]
 
 const SHUFFLE_SECOND_LINES = [
-  '基準ですか？\n今日は全体のバランスを大事にしてみます♪',
-  '順番にはちゃんと理由があります♪\n……決めたあとに見つかることもありますけど！',
-  '大丈夫です♪\n最後には、なんとなく納得できる並びになります！',
+  '前の方が偉いとかではないので、気楽にどうぞ♪',
+  '決まった方から左上に並んでもらいますね♪',
+  '金色の枠が付いたら、その位置で決定です♪',
 ]
 
 const GROUP_CLOSERS = [
@@ -94,9 +95,9 @@ const GROUP_CLOSERS = [
 ]
 
 const SHUFFLE_CLOSERS = [
-  'はい、並び順はこれで決まりです♪\n見てください、なんだか最初からこの順だった気がします！',
-  'これで整いました♪\nうん、かなりしっくり来ています。理由はあとで考えますね！',
-  'はい、こちらの順番でお願いします♪\n不思議ですね、並べたら急に正解っぽくなりました！',
+  'はい、全員の順番が決まりました♪\n上から順に、その並びでお願いします！',
+  'これで全員そろいました♪\n最後までちゃんと決めましたよ！',
+  'はい、並び替え完了です♪\n金枠の番号どおりで決定です！',
 ]
 
 function pick<T>(items: readonly T[], random: Random) {
@@ -168,37 +169,44 @@ function groupingBeats(result: DrawResult, fighters: Fighter[], random: Random):
 function shuffleBeats(result: DrawResult, fighters: Fighter[], random: Random): TavernDialogueBeat[] {
   const lookup = byId(fighters)
   const ordered = result.orderedIds.filter((id) => lookup.has(id))
+  const originalOrder = fighters.map(f => f.id)
   const themePool: OrderTheme[] = []
+  const rankById: Record<string, number> = {}
+  const revealed: string[] = []
   const beats: TavernDialogueBeat[] = [
     { type: 'intro', phase: 'INTRO', message: hostess(pick(SHUFFLE_OPENERS, random)), pose: 'idle', effectMs: 320, holdMs: 420 },
-    { type: 'formation', phase: 'SKIRMISH', message: hostess(pick(SHUFFLE_SECOND_LINES, random)), pose: 'cheer', effectMs: 320, holdMs: 420 },
+    { type: 'formation', phase: 'SKIRMISH', message: hostess(pick(SHUFFLE_SECOND_LINES, random)), pose: 'cheer', effectMs: 300, holdMs: 360 },
   ]
 
-  const indices = ordered.length <= 7
-    ? ordered.map((_, index) => index)
-    : Array.from(new Set([0, 1, Math.floor(ordered.length / 2), ordered.length - 2, ordered.length - 1])).filter((index) => index >= 0 && index < ordered.length)
-
-  for (const index of indices) {
-    const id = ordered[index]
+  ordered.forEach((id, index) => {
     const name = lookup.get(id)?.name
-    if (!name) continue
+    if (!name) return
+    const rank = index + 1
     const theme = takeTheme(themePool, ORDER_THEMES, random)
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(`${name}さんは${theme.setup(index + 1, ordered.length)}`), pose: 'point', effectMs: 300, holdMs: 360 })
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: person(name, theme.reaction), pose: 'idle', effectMs: 220, holdMs: 280 })
-    beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(theme.followUp), pose: random() < .35 ? 'cheer' : 'idle', effectMs: 260, holdMs: 320 })
-  }
+    revealed.push(id)
+    rankById[id] = rank
+    const revealedSet = new Set(revealed)
+    const order = [...revealed, ...originalOrder.filter(candidate => !revealedSet.has(candidate))]
 
-  if (ordered.length > indices.length) {
     beats.push({
       type: 'formation', phase: 'SKIRMISH',
-      message: hostess('残りの皆さんも、ちゃんと良い位置に収まりました♪\n途中から急に早くなったように見えるのは気のせいです！'),
-      pose: 'cheer', effectMs: 300, holdMs: 400,
+      message: hostess(`${name}さんは${theme.setup(rank, ordered.length)}`),
+      pose: 'point', effectMs: 240, holdMs: 220,
+      order,
+      rankById: { ...rankById },
     })
-  }
+
+    const showReaction = ordered.length <= 10 || index === ordered.length - 1 || index % 4 === 1
+    if (showReaction) {
+      beats.push({ type: 'formation', phase: 'SKIRMISH', message: person(name, theme.reaction), pose: 'idle', effectMs: 180, holdMs: 180 })
+      beats.push({ type: 'formation', phase: 'SKIRMISH', message: hostess(theme.followUp), pose: random() < .35 ? 'cheer' : 'idle', effectMs: 200, holdMs: 200 })
+    }
+  })
 
   beats.push({
-    type: 'result', phase: 'RESULT', message: hostess(pick(SHUFFLE_CLOSERS, random)), pose: 'cheer', effectMs: 320, holdMs: 560,
+    type: 'result', phase: 'RESULT', message: hostess(pick(SHUFFLE_CLOSERS, random)), pose: 'cheer', effectMs: 300, holdMs: 520,
     order: ordered,
+    rankById: { ...rankById },
   })
   return beats
 }
