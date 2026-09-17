@@ -57,6 +57,7 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
         hostessPose: beat.pose,
         order,
         partyById,
+        rankById: beat.rankById,
       }, beat.holdMs)
     }
     return { boss, fighters, events, duration: t, survivorIds, peaceful }
