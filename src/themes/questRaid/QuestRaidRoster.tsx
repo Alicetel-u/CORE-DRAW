@@ -6,7 +6,20 @@ function densityFor(count: number) {
   return count <= 8 ? 'few' : count <= 18 ? 'pack' : count <= 32 ? 'crowd' : 'mass'
 }
 
-const PARTY_ACCENTS = ['#ffe66f', '#7dff92', '#7ed7ff', '#ff9fe5', '#ffae6f', '#c7a3ff']
+const PARTY_PALETTES = [
+  { accent: '#ffe66f', tint: 'rgba(255,230,111,.13)' },
+  { accent: '#7dff92', tint: 'rgba(125,255,146,.13)' },
+  { accent: '#7ed7ff', tint: 'rgba(126,215,255,.13)' },
+  { accent: '#ff9fe5', tint: 'rgba(255,159,229,.13)' },
+  { accent: '#ffae6f', tint: 'rgba(255,174,111,.13)' },
+  { accent: '#c7a3ff', tint: 'rgba(199,163,255,.13)' },
+  { accent: '#76f0df', tint: 'rgba(118,240,223,.13)' },
+  { accent: '#ff8f9f', tint: 'rgba(255,143,159,.13)' },
+]
+
+function paletteFor(party: number) {
+  return PARTY_PALETTES[(party - 1) % PARTY_PALETTES.length]
+}
 
 function Status({ fighter, critical, acting, targeted, compact, reduced }: {
   fighter: Fighter; critical: boolean; acting: boolean; targeted: boolean; compact: boolean; reduced: boolean
@@ -25,39 +38,41 @@ function Status({ fighter, critical, acting, targeted, compact, reduced }: {
   }, [fighter.hp, reduced])
   const state = hpState(fighter.hp, fighter.maxHp)
   const ratio = fighter.maxHp <= 0 ? 0 : Math.max(0, Math.min(1, hp / fighter.maxHp))
-  const accent = fighter.party ? PARTY_ACCENTS[(fighter.party - 1) % PARTY_ACCENTS.length] : undefined
+  const accent = fighter.party ? paletteFor(fighter.party).accent : undefined
   return <div
     className={`qr-chip qr-${state}${critical ? ' qr-critical-enter' : ''}${acting ? ' qr-acting' : ''}${targeted ? ' qr-targeted' : ''}`}
     title={`${fighter.name} HP ${hp}/${fighter.maxHp} MP ${fighter.mp}/${fighter.maxMp}`}
     style={fighter.party ? {
       position: 'relative',
       borderColor: accent,
-      boxShadow: `inset 0 0 0 1px ${accent}66, 0 0 9px ${accent}33, 0 1px 0 #010b35`,
+      boxShadow: `inset 0 0 0 1px ${accent}55, 0 1px 0 #010b35`,
     } : undefined}
   >
-    {fighter.party && <span aria-label={`パーティー ${fighter.party}`} style={{
-      position: 'absolute',
-      top: 2,
-      right: 3,
-      zIndex: 1,
-      padding: '1px 4px',
-      border: `1px solid ${accent}`,
-      borderRadius: 2,
-      background: '#031653e8',
-      color: accent,
-      fontSize: compact ? 9 : 10,
-      lineHeight: 1.1,
-      fontWeight: 800,
-      textShadow: '1px 1px 0 #00103f',
-      pointerEvents: 'none',
-    }}>{fighter.party}組</span>}
-    <span className="qr-chip-name" style={fighter.party ? { paddingRight: compact ? 25 : 29 } : undefined}>{acting ? '▶' : ''}{fighter.name}</span>
+    <span className="qr-chip-name">{acting ? '▶' : ''}{fighter.name}</span>
     <span className="qr-chip-stats">
       <span>H <b>{hp}</b>{!compact && <i>/{fighter.maxHp}</i>}</span>
       <em>M {fighter.mp}</em>
     </span>
     <span className="qr-chip-bar" aria-hidden="true"><i style={{ width: `${ratio * 100}%` }} /></span>
   </div>
+}
+
+function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduced }: {
+  fighter: Fighter
+  criticalIds: string[]
+  actorId?: string
+  targets: Set<string>
+  compact: boolean
+  reduced: boolean
+}) {
+  return <Status
+    fighter={fighter}
+    critical={criticalIds.includes(fighter.id)}
+    acting={actorId === fighter.id}
+    targeted={targets.has(fighter.id)}
+    compact={compact}
+    reduced={reduced}
+  />
 }
 
 export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, reduced }: {
@@ -70,17 +85,110 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
   const density = densityFor(fighters.length)
   const compact = density === 'crowd' || density === 'mass'
   const targets = new Set(targetIds ?? [])
-  return <section className={`qr-roster qr-density-${density}`} aria-label="なかまのステータス">
-    <div className="qr-roster-board">
-      {fighters.map(f => <Status
-        key={f.id}
-        fighter={f}
-        critical={criticalIds.includes(f.id)}
-        acting={actorId === f.id}
-        targeted={targets.has(f.id)}
-        compact={compact}
-        reduced={reduced}
-      />)}
+  const partyNumbers = Array.from(new Set(fighters.flatMap(f => f.party ? [f.party] : []))).sort((a, b) => a - b)
+
+  if (!partyNumbers.length) {
+    return <section className={`qr-roster qr-density-${density}`} aria-label="なかまのステータス">
+      <div className="qr-roster-board">
+        {fighters.map(f => <FighterStatus
+          key={f.id}
+          fighter={f}
+          criticalIds={criticalIds}
+          actorId={actorId}
+          targets={targets}
+          compact={compact}
+          reduced={reduced}
+        />)}
+      </div>
+    </section>
+  }
+
+  const unassigned = fighters.filter(f => !f.party)
+  const blockColumns = partyNumbers.length <= 3 ? 1 : partyNumbers.length <= 8 ? 2 : 3
+  const memberColumns = fighters.length <= 12 ? 2 : fighters.length <= 28 ? 2 : 3
+
+  return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成">
+    <div className="qr-roster-board" style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${blockColumns}, minmax(0, 1fr))`,
+      gridAutoRows: 'minmax(0, auto)',
+      alignContent: 'start',
+      gap: 5,
+      overflow: 'hidden',
+    }}>
+      {partyNumbers.map(party => {
+        const members = fighters.filter(f => f.party === party)
+        const palette = paletteFor(party)
+        return <section key={party} aria-label={`${party}組`} style={{
+          minWidth: 0,
+          padding: 4,
+          border: `2px solid ${palette.accent}`,
+          borderRadius: 4,
+          background: `linear-gradient(180deg, ${palette.tint}, rgba(2,16,67,.72))`,
+          boxShadow: `inset 0 0 0 1px ${palette.accent}22, 0 0 8px ${palette.accent}18`,
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 4,
+            marginBottom: 3,
+            color: palette.accent,
+            fontSize: compact ? 10 : 11,
+            fontWeight: 900,
+            lineHeight: 1.05,
+            textShadow: '1px 1px 0 #00103f',
+          }}>
+            <span>◆ {party}組</span><span>{members.length}人</span>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${Math.min(memberColumns, Math.max(1, members.length))}, minmax(0, 1fr))`,
+            gap: 3,
+          }}>
+            {members.map(f => <FighterStatus
+              key={f.id}
+              fighter={f}
+              criticalIds={criticalIds}
+              actorId={actorId}
+              targets={targets}
+              compact={true}
+              reduced={reduced}
+            />)}
+          </div>
+        </section>
+      })}
+      {unassigned.length > 0 && <section aria-label="未決定" style={{
+        minWidth: 0,
+        padding: 4,
+        border: '1px dashed rgba(220,232,255,.42)',
+        borderRadius: 4,
+        background: 'rgba(2,16,67,.36)',
+        gridColumn: blockColumns > 1 && unassigned.length > 4 ? '1 / -1' : undefined,
+      }}>
+        <div style={{
+          marginBottom: 3,
+          color: '#b8c9ef',
+          fontSize: compact ? 9 : 10,
+          fontWeight: 700,
+          lineHeight: 1.05,
+        }}>まだ決まっていない仲間</div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${density === 'mass' ? 5 : density === 'crowd' ? 4 : density === 'pack' ? 3 : 2}, minmax(0, 1fr))`,
+          gap: 3,
+        }}>
+          {unassigned.map(f => <FighterStatus
+            key={f.id}
+            fighter={f}
+            criticalIds={criticalIds}
+            actorId={actorId}
+            targets={targets}
+            compact={compact}
+            reduced={reduced}
+          />)}
+        </div>
+      </section>}
     </div>
   </section>
 }
