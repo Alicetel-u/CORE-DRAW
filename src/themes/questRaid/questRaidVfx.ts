@@ -1,11 +1,16 @@
 import type { QuestEffect } from './questRaidEvents'
+import { ALLY_SKILL_VFX, isAllySkillEffect, paintAllySkill } from './questRaidAllyVfx'
 
 export type ModernQuestEffect = Exclude<QuestEffect, 'fire' | 'bolt' | 'spell' | 'roar'>
-type EffectInfo = { label: string; family: string; boss: string; pose: 'attack' | 'special'; reserved?: boolean }
+type EffectInfo = { label: string; family: string; boss: string; pose: 'attack' | 'special'; reserved?: boolean; legacy?: boolean }
 
 /** One catalogue for battle rendering and the development preview. Reserved entries
  * are deliberately not added to the battle's skill/selection tables. */
 export const QUEST_VFX = {
+  ...ALLY_SKILL_VFX,
+  staff_sweep: { label: '魔導杖の一振り', family: '闇', boss: 'dark-lord', pose: 'attack' },
+  claw_rend: { label: '悪魔の三連爪', family: '物理', boss: 'demon', pose: 'attack' },
+  finishing_blow: { label: '最後のひと振り', family: '決着', boss: 'knight', pose: 'attack' },
   slash: { label: '三日月の斬撃', family: '物理', boss: 'knight', pose: 'attack' },
   dark_bolt: { label: '冥雷', family: '闇', boss: 'dark-lord', pose: 'special' },
   dark_wave: { label: '闇の奔流', family: '闇', boss: 'dark-lord', pose: 'special' },
@@ -19,10 +24,10 @@ export const QUEST_VFX = {
   tentacle_slam: { label: '触手の強襲', family: '異界', boss: 'abomination', pose: 'attack' },
   void_burst: { label: '邪眼の崩壊', family: '異界', boss: 'abomination', pose: 'special' },
   eldritch_spell: { label: '異界の門', family: '異界', boss: 'abomination', pose: 'special' },
-  ally_shot: { label: '彗星弾', family: '味方', boss: 'knight', pose: 'attack' },
-  ally_heal: { label: '癒やしの芽吹き', family: '味方', boss: 'knight', pose: 'special' },
-  ally_cheer: { label: '祝福の花舞', family: '味方', boss: 'demon', pose: 'special' },
-  ally_toss: { label: '魔晶の投擲', family: '味方', boss: 'abomination', pose: 'attack' },
+  ally_shot: { label: '彗星弾', family: '予備', boss: 'knight', pose: 'attack', legacy: true },
+  ally_heal: { label: '癒やしの芽吹き', family: '予備', boss: 'knight', pose: 'special', legacy: true },
+  ally_cheer: { label: '祝福の花舞', family: '予備', boss: 'demon', pose: 'special', legacy: true },
+  ally_toss: { label: '魔晶の投擲', family: '予備', boss: 'abomination', pose: 'attack', legacy: true },
   ice_lance: { label: '氷晶の槍', family: '氷', boss: 'knight', pose: 'special', reserved: true },
   frost_nova: { label: '氷結の花冠', family: '氷', boss: 'dragon', pose: 'special', reserved: true },
   meteor: { label: '隕石落下', family: '炎', boss: 'dragon', pose: 'special', reserved: true },
@@ -261,9 +266,29 @@ export function paintQuestEffect(
     ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip(); ctx.globalAlpha *= alpha
     // Keep the character's pixelated image separate from smoothly shaded VFX.
     ctx.globalCompositeOperation = 'source-over'
+    if (isAllySkillEffect(effect)) { paintAllySkill(ctx, effect, p, cx, cy, s); return }
     switch (effect) {
+      case 'staff_sweep': {
+        const tipX = cx + s * .25, tipY = cy + s * .04
+        glow(ctx, tipX, tipY, s * .28, GOLD[1], .48)
+        crescent(ctx, tipX - s * .14, tipY, s * (.18 + p * .25), -.7 - p * 2.2, GOLD, .85)
+        for (let i = 0; i < 3; i++) {
+          const q = clamp((p - i * .09) / .72)
+          leaf(ctx, tipX - q * s * .78, tipY - Math.sin(q * Math.PI) * s * .23, s * .055, -Math.PI / 2 + q, i % 2 ? GOLD : VOID)
+        }
+        break
+      }
+      case 'finishing_blow':
+        for (let i = 0; i < 2; i++) {
+          const q = clamp((p - i * .12) / .65)
+          crescent(ctx, cx, cy, s * (.22 + smooth(q) * .6), -.9 + i * 2.2 + q * .65, GOLD, Math.sin(q * Math.PI))
+        }
+        glow(ctx, cx, cy, s * .85, '#ffeec1', Math.sin(p * Math.PI) * .5)
+        if (p > .3) impact(ctx, cx, cy, s * 1.1, (p - .3) / .7, GOLD)
+        break
+      case 'claw_rend':
       case 'slash': {
-        const claw = options.bossId === 'demon'
+        const claw = effect === 'claw_rend' || options.bossId === 'demon'
         const count = claw ? 3 : 2
         for (let i = 0; i < count; i++) {
           const q = clamp((p - i * .09) / .7)
@@ -387,7 +412,7 @@ export function paintQuestEffect(
         smoke(ctx, cx, cy + s * .3, s * .4, p, '#abdfeb'); debris(ctx, cx, cy, s, p, ICE); break
       }
       case 'meteor': {
-        const q = smooth(p / .48), x = cx + (1 - q) * s * .8, y = cy - (1 - q) * s * 1.2
+        const q = smooth(p / .48), x = cx + (1 - q) * Math.min(s * .8, w - cx - s * .15), y = cy - (1 - q) * Math.min(s * 1.2, cy + s * .08)
         if (p < .55) {
           flame(ctx, x, y, s * .22, .6, p * 14, FIRE)
           crystal(ctx, x, y + s * .03, s * .13, -.5, ['#453642', '#9f5146', '#ffac61'], 1.4)
@@ -399,15 +424,27 @@ export function paintQuestEffect(
         portal(ctx, cx, cy + s * .35, s, p, ['#28482f', '#a0c83d', '#efff98'], true)
         for (let i = 0; i < 9; i++) cloud(ctx, cx + Math.sin(i * 2.4) * s * .4, cy + s * .25 - ((p + i / 9) % 1) * s * .65, s * (.16 + noise(i) * .14), i, i % 2 ? '#658e43' : '#a1b958', .56)
         break
-      case 'water_surge':
+      case 'water_surge': {
+        const ground = cy + s * .4, crestX = cx - s * .4 + smooth(p / .65) * s * .65
+        for (let layer = 0; layer < 3; layer++) {
+          const r = s * (.65 - layer * .12), y = ground - layer * s * .04
+          ctx.fillStyle = gradient(ctx, crestX - r, y, crestX + r, y - r, ICE)
+          ctx.globalAlpha *= .86
+          ctx.beginPath(); ctx.moveTo(crestX - r, y)
+          ctx.bezierCurveTo(crestX - r * .4, y - r * .25, crestX - r * .15, y - r * 1.3, crestX + r * .62, y - r * .85)
+          ctx.bezierCurveTo(crestX + r * .9, y - r * .6, crestX + r * .44, y - r * .27, crestX + r * .25, y - r * .57)
+          ctx.bezierCurveTo(crestX + r * .36, y - r * .3, crestX + r * .2, y - r * .1, crestX + r, y); ctx.closePath(); ctx.fill()
+          cloud(ctx, crestX + r * .48, y - r * .7, r * .22, layer, '#e5fbff', .7)
+        }
+        break
+      }
       case 'wind_vortex': {
-        const water = effect === 'water_surge', colors = water ? ICE : JADE
+        const colors = JADE
         for (let i = 0; i < 5; i++) {
           const y = cy + s * .35 - i * s * .14, r = s * (.22 + i * .055)
-          ctx.save(); ctx.translate(cx + Math.sin(p * 5 + i) * s * .08, y); ctx.scale(1, water ? .55 : .4)
+          ctx.save(); ctx.translate(cx + Math.sin(p * 5 + i) * s * .08, y); ctx.scale(1, .4)
           crescent(ctx, 0, 0, r, p * 5 + i * .9, colors, .7); ctx.restore()
-          if (water) cloud(ctx, cx + Math.cos(i + p * 5) * r, y, s * .1, i, '#d4f5ff', .48)
-          else leaf(ctx, cx + Math.cos(i + p * 6) * r, y, s * .04, p * 6 + i, JADE)
+          leaf(ctx, cx + Math.cos(i + p * 6) * r, y, s * .04, p * 6 + i, JADE)
         }
         break
       }
@@ -417,16 +454,24 @@ export function paintQuestEffect(
         for (let i = 0; i < 5; i++) crystal(ctx, cx + (i - 2) * s * .14, cy + s * .4, s * (.065 + noise(i) * .035) * rise, (i - 2) * .16, colors, 3 + noise(i + 1) * 2)
         debris(ctx, cx, cy + s * .35, s * 1.2, p, colors); break
       }
-      case 'holy_nova':
+      case 'holy_nova': {
+        glow(ctx, cx, cy, s * .8, GOLD[1], .5)
+        for (let i = 0; i < 8; i++) {
+          const a = i / 8 * TAU + p * .5, distance = s * (.08 + smooth(p / .4) * .16)
+          leaf(ctx, cx + Math.sin(a) * distance, cy + Math.cos(a) * distance, s * .12, -a, GOLD)
+        }
+        crystal(ctx, cx, cy, s * .12, p * .4, GOLD, 2.8)
+        break
+      }
       case 'phoenix_flare': {
-        const colors = effect === 'holy_nova' ? GOLD : FIRE, open = smooth(p / .32)
+        const colors = FIRE, open = smooth(p / .32)
         glow(ctx, cx, cy, s * .8, colors[1], .36)
         for (const dir of [-1, 1]) for (let i = 0; i < 6; i++) {
           const a = dir * (.35 + i * .19) * open
           leaf(ctx, cx + dir * i * s * .06 * open, cy - s * .04 + i * s * .026, s * (.16 - i * .014), a, colors)
         }
-        if (effect === 'phoenix_flare') flame(ctx, cx, cy + s * .1, s * .11, Math.PI, p * 8, FIRE)
-        else crystal(ctx, cx, cy, s * .09, 0, GOLD, 2.8)
+        flame(ctx, cx, cy + s * .1, s * .11, Math.PI, p * 8, FIRE)
+        flame(ctx, cx, cy - s * .08, s * .075, .15, p * 8, FIRE)
         break
       }
       case 'soul_drain':

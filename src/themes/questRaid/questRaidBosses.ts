@@ -20,7 +20,7 @@ function art(id: string, pose: BossPose) {
 
 const specs = [
   ['dark-lord', 'まおうヴァルガ', [
-    ['まけんを ふりぬいた！', 'slash', 'attack'],
+    ['つえを ふりぬいた！', 'staff_sweep', 'attack'],
     ['やみのいなずまを よんだ！', 'dark_bolt', 'special'],
     ['やみのはどうを はなった！', 'dark_wave', 'special'],
   ]],
@@ -35,7 +35,7 @@ const specs = [
     ['せいなるたてを かかげた！', 'shield_flash', 'special'],
   ]],
   ['demon', 'まかいのあくま', [
-    ['するどいつめで きりさいた！', 'slash', 'attack'],
+    ['するどいつめで きりさいた！', 'claw_rend', 'attack'],
     ['あおいごうかを はきだした！', 'blue_flame', 'special'],
     ['のろいのさけびを はなった！', 'curse_wave', 'special'],
   ]],

@@ -167,7 +167,7 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
   const lastHit = Math.max(1, bossHp)
   bossHp = 0
   act('final_strike', 'FINISH', finalId ? `${fighters.find(f => f.id === finalId)?.name} の\nきめた！ さいごのひとふり！\n${lastHit}の ダメージ！` : `のこった なかまたちの\nそうこうげき！\n${lastHit}の ダメージ！`, 860, {
-    actorId: finalId, targetIds: survivorIds, bossHp: 0, critical: true, damage: lastHit, effect: 'ally_shot',
+    actorId: finalId, targetIds: survivorIds, bossHp: 0, critical: true, damage: lastHit, effect: 'finishing_blow',
   })
   act('boss_defeat', 'FINISH', `${boss.name} を\nたおした！`, 1100, { bossHp: 0 })
   act('result', 'RESULT', result.mode === 'single_winner' ? `${fighters.find(f => f.id === survivorIds[0])?.name} が\nえらばれた！` : 'たたかいの けっかが\nきろくされた！', 360)

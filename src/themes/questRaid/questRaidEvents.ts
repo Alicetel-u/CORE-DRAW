@@ -2,7 +2,10 @@ export type QuestPhase = 'INTRO' | 'SKIRMISH' | 'RAID' | 'CRISIS' | 'FINISH' | '
 export type QuestEventType = 'intro' | 'player_attack' | 'player_spell' | 'player_heal' | 'player_item' | 'boss_attack' | 'boss_aoe' | 'near_death' | 'knockout' | 'boss_enrage' | 'final_strike' | 'boss_defeat' | 'formation' | 'result'
 export type Fighter = { id: string; name: string; maxHp: number; hp: number; maxMp: number; mp: number }
 
-export type QuestEffect =
+export type QuestEffect = import('./questRaidAllyVfx').AllySkillEffect
+  | 'staff_sweep'
+  | 'claw_rend'
+  | 'finishing_blow'
   | 'slash'
   | 'dark_bolt'
   | 'dark_wave'

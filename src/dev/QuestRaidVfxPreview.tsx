@@ -6,6 +6,8 @@ import { QuestRaidStage } from '../themes/questRaid/QuestRaidStage'
 import type { QuestBattleScript } from '../themes/questRaid/questRaidBattle'
 import type { QuestFrame } from '../themes/questRaid/questRaidDirector'
 import { verifyQuestVfx } from './verifyQuestVfx'
+import { isAllySkillEffect } from '../themes/questRaid/questRaidAllyVfx'
+import { ALLY_SKILLS } from '../themes/questRaid/questRaidSkills'
 import '../themes/questRaid/questRaid.css'
 import './questRaidVfxPreview.css'
 
@@ -24,7 +26,7 @@ function EffectCard({ id, selected, onSelect }: { id: ModernQuestEffect; selecte
   }, [id, info.boss])
   return <button className={`fx-card ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={onSelect}>
     <div className="fx-card-image" style={{ backgroundImage: `linear-gradient(#09101e66,#09101e88),url(${background})` }}><canvas ref={canvas} width="280" height="150" /></div>
-    <span className="fx-card-copy"><span><strong>{info.label}</strong><small>{id}</small></span><span className="fx-badge">{'reserved' in info ? '追加' : '使用中'}</span></span>
+    <span className="fx-card-copy"><span><strong>{info.label}</strong><small>{id}</small></span><span className="fx-badge">{'legacy' in info ? '予備' : 'reserved' in info ? '追加' : '使用中'}</span></span>
   </button>
 }
 
@@ -37,6 +39,7 @@ function Preview() {
   const [speed, setSpeed] = useState(1)
   const [reduced, setReduced] = useState(false)
   const [filter, setFilter] = useState('すべて')
+  const [defeat, setDefeat] = useState(false)
   const [report, setReport] = useState('')
   const [testing, setTesting] = useState(false)
   const info = QUEST_VFX[effect]
@@ -55,11 +58,14 @@ function Preview() {
     return () => cancelAnimationFrame(handle)
   }, [playing, speed])
   const seek = (value: number) => { setPlaying(false); progressRef.current = value; setProgress(value) }
-  const select = (id: ModernQuestEffect) => { setEffect(id); setBossId(QUEST_VFX[id].boss); progressRef.current = .38; setProgress(.38) }
+  const select = (id: ModernQuestEffect) => { setDefeat(false); setEffect(id); setBossId(QUEST_VFX[id].boss); progressRef.current = .38; setProgress(.38) }
+  const skill = Object.values(ALLY_SKILLS).find(s => s.effect === effect)
+  const ally = isAllySkillEffect(effect) || effect.startsWith('ally_')
+  const duration = defeat ? 1800 : 1000
   const frame: QuestFrame = {
-    fighters, eventIndex: 0, page: 0, bossHp: 999, criticalIds: [], elapsed: progress * 1000,
-    event: { type: effect.startsWith('ally_') ? effect === 'ally_heal' ? 'player_heal' : effect === 'ally_toss' ? 'player_item' : 'player_spell' : 'boss_attack',
-      phase: 'RAID', at: 0, duration: 1000, fx: 1000, message: info.label, effect, pose: effect.startsWith('ally_') ? 'idle' : info.pose },
+    fighters, eventIndex: 0, page: 0, bossHp: defeat ? 0 : 999, criticalIds: [], elapsed: progress * duration,
+    event: { type: defeat ? 'boss_defeat' : effect === 'finishing_blow' ? 'final_strike' : skill?.type ?? (ally ? 'player_spell' : 'boss_attack'),
+      phase: defeat ? 'FINISH' : 'RAID', at: 0, duration, fx: duration, message: defeat ? `${boss.name} を たおした！` : info.label, effect, pose: defeat || ally || effect === 'finishing_blow' ? 'idle' : info.pose },
   }
   const visible = ids.filter(id => filter === 'すべて' || filter === '追加のみ' && 'reserved' in QUEST_VFX[id] || QUEST_VFX[id].family === filter)
   const runChecks = () => {
@@ -71,14 +77,15 @@ function Preview() {
     }))
   }
   return <div className="fx-library">
-    <header className="fx-header"><div><span className="fx-eyebrow">CORE DRAW / QUEST RAID</span><h1>魔法と衝撃の図鑑<span>VFX LIBRARY</span></h1><p>29の演出。ためる、放つ、余韻まで。</p></div><a href="/">ゲームへ戻る ↗</a></header>
+    <header className="fx-header"><div><span className="fx-eyebrow">CORE DRAW / QUEST RAID</span><h1>魔法と衝撃の図鑑<span>VFX LIBRARY</span></h1><p>{ids.length}の演出と、ボス撃破のフィナーレ。</p></div><a href="/">ゲームへ戻る ↗</a></header>
     <main>
       <section className="fx-preview" aria-label="エフェクトの再生">
-        <div className="fx-preview-title"><div><span className="fx-eyebrow">LIVE PREVIEW</span><h2>{info.label}</h2></div><span className="fx-badge">{info.family} / {'reserved' in info ? '今後のスキル用' : 'レイドで使用中'}</span></div>
+        <div className="fx-preview-title"><div><span className="fx-eyebrow">LIVE PREVIEW</span><h2>{defeat ? 'ボス撃破' : info.label}</h2></div><span className="fx-badge">{defeat ? '決着' : `${info.family} / ${'legacy' in info ? '互換・予備' : 'reserved' in info ? '今後のスキル用' : 'レイドで使用中'}`}</span></div>
         <div className="fx-stage"><QuestRaidStage script={script} frame={frame} participants={fighters} reduced={reduced} /></div>
         <div className="fx-controls">
           <button className="fx-primary" onClick={() => setPlaying(!playing)}>{playing ? '一時停止' : '再生'}</button>
           <button onClick={() => seek(0)}>先頭へ</button><button onClick={() => seek(Math.min(1, progress + .05))}>+5% コマ送り</button>
+          <button aria-pressed={defeat} onClick={() => { setDefeat(!defeat); progressRef.current = 0; setProgress(0); setPlaying(true) }}>ボス撃破を再生</button>
           <label className="fx-seek">進行 <input aria-label="エフェクトの進行" type="range" min="0" max="100" value={Math.round(progress * 100)} onChange={e => seek(Number(e.target.value) / 100)} /><output>{Math.round(progress * 100)}%</output></label>
         </div>
         <div className="fx-options"><label>ボス <select aria-label="確認するボス" value={bossId} onChange={e => setBossId(e.target.value)}>{QUEST_BOSSES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
@@ -87,10 +94,10 @@ function Preview() {
         </div>
       </section>
       <section className="fx-collection" aria-label="エフェクト一覧">
-        <div className="fx-collection-heading"><div><span className="fx-eyebrow">COLLECTION</span><h2>演出を選ぶ <small>{visible.length} / 29</small></h2></div><label>絞り込み <select aria-label="エフェクト分類" value={filter} onChange={e => setFilter(e.target.value)}>{['すべて', '追加のみ', ...new Set(ids.map(id => QUEST_VFX[id].family))].map(f => <option key={f}>{f}</option>)}</select></label></div>
-        <div className="fx-grid">{visible.map(id => <EffectCard key={id} id={id} selected={id === effect} onSelect={() => select(id)} />)}</div>
+        <div className="fx-collection-heading"><div><span className="fx-eyebrow">COLLECTION</span><h2>演出を選ぶ <small>{visible.length} / {ids.length}</small></h2></div><label>絞り込み <select aria-label="エフェクト分類" value={filter} onChange={e => setFilter(e.target.value)}>{['すべて', '追加のみ', ...new Set(ids.map(id => QUEST_VFX[id].family))].map(f => <option key={f}>{f}</option>)}</select></label></div>
+        <div className="fx-grid">{visible.map(id => <EffectCard key={id} id={id} selected={!defeat && id === effect} onSelect={() => select(id)} />)}</div>
       </section>
-      <footer><p>開発用プレビュー。追加12種は戦闘には未割り当てです。選択や再生で抽選結果は変わりません。</p><button disabled={testing} onClick={runChecks}>全29種類の描画検証</button><pre role="status">{report}</pre></footer>
+      <footer><p>開発用プレビュー。追加12種は戦闘には未割り当てです。選択や再生で抽選結果は変わりません。</p><button disabled={testing} onClick={runChecks}>全{ids.length}種類の描画検証</button><pre role="status">{report}</pre></footer>
     </main>
   </div>
 }

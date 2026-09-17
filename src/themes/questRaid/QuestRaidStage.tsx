@@ -3,6 +3,8 @@ import type { DrawResult, Participant } from '../../core/types'
 import type { QuestBattleScript } from './questRaidBattle'
 import type { BossPose } from './questRaidBosses'
 import { normalizeEffect, paintQuestEffect } from './questRaidVfx'
+import { ALLY_IMPACT_START, isAllySkillEffect, SUPPORT_EFFECTS } from './questRaidAllyVfx'
+import { defeatBannerOpacity, paintQuestBossDefeat } from './questRaidDefeatVfx'
 import type { QuestFrame } from './questRaidDirector'
 import { QuestRaidRoster } from './QuestRaidRoster'
 import { QuestRaidHud } from './QuestRaidHud'
@@ -15,16 +17,17 @@ function densityFor(count: number) {
 
 const FIELD_BG = new URL('./bosses/battle-bg.png', import.meta.url).href
 
-function px(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
-  ctx.fillStyle = color
-  ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(s)), Math.max(1, Math.round(s)))
-}
-
-function poseOf(frame: QuestFrame | null, age = 0): BossPose {
+function poseOf(frame: QuestFrame | null, age = 0, script: QuestBattleScript | null = null): BossPose {
   const event = frame?.event
   if (!event) return 'idle'
   const fx = event.fx ?? event.duration
   if (fx > 0 && age >= fx && event.type !== 'boss_defeat' && event.type !== 'result' && event.type !== 'boss_enrage') return 'idle'
+  // Crisis events can use a longer special duration for a normal attack.
+  // Its original attack definition still determines the matching PNG pose.
+  if (event.type === 'boss_attack' || event.type === 'boss_aoe') {
+    const attack = script?.boss.attacks.find(a => a.id === event.attackId)
+    if (attack) return attack.pose
+  }
   if (event.pose) return event.pose
   if (event.type === 'boss_enrage') return 'special'
   if (event.type === 'boss_attack' || event.type === 'boss_aoe') {
@@ -42,7 +45,7 @@ function paint(
   frame: QuestFrame | null,
   reduced: boolean,
   sprites: Record<BossPose, HTMLImageElement | null>,
-  palettes: HTMLCanvasElement[],
+  palettes: Partial<Record<BossPose, HTMLCanvasElement[]>>,
   background: HTMLImageElement | null,
 ) {
   ctx.imageSmoothingEnabled = false
@@ -66,7 +69,10 @@ function paint(
   const age = elapsed - event.at
   const fx = event.fx ?? event.duration
   const settled = event.type === 'result'
-  const hit = !settled && ['player_attack', 'player_spell', 'player_heal', 'player_item', 'final_strike'].includes(event.type) && age < fx
+  const allyAct = !settled && ['player_attack', 'player_spell', 'player_heal', 'player_item', 'final_strike'].includes(event.type) && age < fx
+  const impactStart = event.type === 'final_strike' ? .3 : event.effect && isAllySkillEffect(event.effect) ? ALLY_IMPACT_START[event.effect] ?? 0 : 0
+  const impactAge = age - fx * impactStart
+  const hit = allyAct && event.type !== 'player_heal' && !SUPPORT_EFFECTS.has(event.effect ?? '') && impactAge >= 0 && impactAge < Math.min(180, fx * .3)
   const attacking = !settled && ['boss_attack', 'boss_aoe'].includes(event.type) && age < fx
   const death = event.type === 'boss_defeat'
   const rage = !settled && !death && bossHp <= script.boss.maxHp * .3
@@ -82,31 +88,26 @@ function paint(
     ctx.fillRect(0, 0, w, h)
   }
 
-  const sprite = sprites[poseOf(frame, age)] ?? sprites.idle
+  const pose = poseOf(frame, age, script)
+  const sprite = sprites[pose] ?? sprites.idle
+  const masks = palettes[pose] ?? palettes.idle
+  if (death) {
+    paintQuestBossDefeat(ctx, w, h, sprite, masks?.[2] ?? null, age, event.duration, x, y, size, reduced)
+    return
+  }
+  // A defeated boss must not reappear behind the result card.
+  if (settled && bossHp <= 0) return
   ctx.save()
   if (settled) ctx.globalAlpha = .55
-  else if (death) ctx.globalAlpha = Math.max(0, 1 - age / event.duration)
   if (sprite) ctx.drawImage(sprite, x, y, size, size)
-  if (!reduced && !settled && sprite && ((hit && age < 70) || rage || death && age < 220)) {
-    const mask = palettes[hit && age < 70 ? 0 : 1]
+  if (!reduced && !settled && sprite && ((hit && impactAge < 70) || rage)) {
+    const mask = masks?.[hit && impactAge < 70 ? 0 : 1]
     if (mask) ctx.drawImage(mask, x, y, size, size)
   }
   ctx.restore()
 
-  if (death && !settled && !reduced) {
-    for (let i = 0; i < 40; i++) {
-      if ((i * 47 + age) % 110 < age / event.duration * 90) {
-        px(ctx, x + (i * 53 % size), y + (i * 29 % size), Math.max(4, size / 28), '#08101c')
-      }
-    }
-  }
-
   if (attacking && !reduced) paintQuestEffect(ctx, w, h, event.effect, age, fx, cx, cy, size, { bossId: script.boss.id })
-  if (hit && !reduced) paintQuestEffect(ctx, w, h, event.effect ?? 'ally_shot', age, fx, cx, cy, size)
-  if (hit && !reduced && event.type === 'final_strike') {
-    ctx.fillStyle = 'rgba(255,236,150,0.14)'
-    ctx.fillRect(0, 0, w * .34, h)
-  }
+  if (allyAct && !reduced) paintQuestEffect(ctx, w, h, event.type === 'final_strike' ? 'finishing_blow' : event.effect ?? 'ally_shot', age, fx, cx, cy, size)
 }
 
 export function QuestRaidStage({ script, frame, participants, reduced, result, revealed, action }: {
@@ -122,7 +123,7 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
   const field = useRef<HTMLDivElement>(null)
   const sprites = useRef<Record<BossPose, HTMLImageElement | null>>({ idle: null, attack: null, special: null })
   const background = useRef<HTMLImageElement | null>(null)
-  const palettes = useRef<HTMLCanvasElement[]>([])
+  const palettes = useRef<Partial<Record<BossPose, HTMLCanvasElement[]>>>({})
   const [view, setView] = useState({ w: 640, h: 360 })
   const [art, setArt] = useState(0)
   const idleFighters = useMemo(() => participants.map(p => ({ ...p, maxHp: 100, hp: 100, maxMp: 20, mp: 20 })), [participants])
@@ -135,7 +136,7 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
 
   useEffect(() => {
     sprites.current = { idle: null, attack: null, special: null }
-    palettes.current = []
+    palettes.current = {}
     if (!script) return
     let alive = true
     const poses: BossPose[] = ['idle', 'attack', 'special']
@@ -145,19 +146,17 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       img.onload = () => {
         if (!alive) return
         sprites.current[pose] = img
-        if (pose === 'idle') {
-          palettes.current = ['#ffffffbb', '#db34343a'].map(color => {
+          palettes.current[pose] = ['#ffffffbb', '#db34343a', '#fff1d5'].map((color, index) => {
             const mask = document.createElement('canvas')
             mask.width = img.width || 256
             mask.height = img.height || 256
             const m = mask.getContext('2d')!
             m.drawImage(img, 0, 0)
-            m.globalCompositeOperation = 'source-atop'
+            m.globalCompositeOperation = index === 2 ? 'source-in' : 'source-atop'
             m.fillStyle = color
             m.fillRect(0, 0, mask.width, mask.height)
             return mask
           })
-        }
         setArt(n => n + 1)
       }
     }
@@ -212,6 +211,9 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       />
       <div className="qr-boss-area" ref={field}>
         <canvas ref={canvas} aria-label={script && !script.peaceful ? script.boss.name : 'QUEST RAID'} />
+        {event.type === 'boss_defeat' && <div className="qr-defeat-banner" role="status" style={{ opacity: defeatBannerOpacity(age, event.duration, reduced) }}>
+          <span aria-hidden="true">BOSS DEFEATED</span><strong>ボスを たおした！</strong>
+        </div>}
         {action}
         {revealed && result && <QuestRaidResult result={result} participants={participants} />}
       </div>
