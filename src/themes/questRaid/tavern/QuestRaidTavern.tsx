@@ -26,8 +26,8 @@ export function QuestRaidTavern({
   const speaker = beat?.speaker === 'member' && beat.name ? `【${beat.name}】` : '【店員】'
   const chars = beat ? Array.from(beat.text) : []
   const text = beat ? (frame?.typed ? beat.text : chars.slice(0, Math.max(1, Math.floor((frame.elapsed - beat.at) / (reduced ? 8 : 22)))).join('')) : 'いらっしゃいませー！'
-  return <div className={`qr-tavern${reduced ? ' qr-tavern-reduced' : ''}`}>
-    <div className="qr-tavern-scene">
+  return <div className={`qrt-root${reduced ? ' qrt-reduced' : ''}`}>
+    <div className="qrt-scene">
       <QuestRaidTavernParty
         groups={finale ? result?.groups ?? groups : groups}
         titles={script?.titles ?? []}
@@ -38,7 +38,7 @@ export function QuestRaidTavern({
       />
       <QuestRaidTavernHostess pose={pose} reduced={reduced} />
     </div>
-    <button type="button" className="qr-tavern-dialogue qr-window" onClick={() => onAdvance?.()} aria-label="会話">
+    <button type="button" className="qrt-dialogue qrt-window" onClick={() => onAdvance?.()} aria-label="会話">
       <strong>{speaker}</strong>
       <span>{text}</span>
     </button>

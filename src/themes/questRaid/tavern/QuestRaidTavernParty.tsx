@@ -15,8 +15,8 @@ export function QuestRaidTavernParty({
   if (!finale && currentIndex >= 0 && currentIndex >= groups.length) {
     visible.push({ index: currentIndex, members: currentMembers, title: titles[currentIndex] })
   }
-  return <div className={`qr-tavern-parties${finale ? ' qr-tavern-parties-finale' : ''}`} aria-label="パーティ">
-    {visible.map((card) => <section className="qr-tavern-card" key={card.index}>
+  return <div className={`qrt-parties${finale ? ' qrt-parties-finale' : ''}`} aria-label="パーティ">
+    {visible.map((card) => <section className="qrt-card" key={card.index}>
       <header>
         <strong>パーティ {card.index + 1}</strong>
         {card.title && <em>{card.title}</em>}

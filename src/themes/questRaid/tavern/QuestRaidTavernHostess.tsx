@@ -15,7 +15,7 @@ export function QuestRaidTavernHostess({ pose, reduced }: { pose: HostessPose; r
     const id = window.setTimeout(() => setPop(false), 160)
     return () => window.clearTimeout(id)
   }, [pose, reduced])
-  return <div className={`qr-tavern-hostess${pop ? ' qr-tavern-hostess-pop' : ''}`}>
+  return <div className={`qrt-hostess${pop ? ' qrt-hostess-pop' : ''}`}>
     <img src={POSES[pose]} alt="" />
   </div>
 }

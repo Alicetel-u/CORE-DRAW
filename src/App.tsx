@@ -409,11 +409,11 @@ export default function App() {
       <section className="stage-shell" aria-label="抽選ステージ">
         {theme === 'core' && <div className="stage-grid" />}
         {theme !== 'quest_raid' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
-        {theme === 'quest_raid' && mode === 'grouping' ? <QuestRaidTavern script={tavernScript} frame={tavernFrame} participants={participants} reduced={reduced} revealed={revealed} result={result} onAdvance={() => tavernAdvance.current?.()} action={!busy ? <div className={`qr-center-actions${revealed ? ' qr-docked' : ''}`}>
-          <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
-          {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
-          {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
-        </div> : null} /> : theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className={`qr-center-actions${revealed && mode === 'shuffle_only' ? ' qr-docked' : ''}`}>
+        {theme === 'quest_raid' && mode === 'grouping' ? <QuestRaidTavern script={tavernScript} frame={tavernFrame} participants={participants} reduced={reduced} revealed={revealed} result={result} onAdvance={() => tavernAdvance.current?.()} action={!busy ? <div className={`qrt-actions${revealed ? ' qrt-actions-docked' : ''}`}>
+          <button ref={startButton} className="qrt-launch" onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
+          {revealed && result && <button className="qrt-replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
+          {!canDrawNow && !cycleExhausted && <p className="qrt-note">候補が 2人以上 必要です。</p>}
+        </div> : null} /> : theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
           <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
           {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
           {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
