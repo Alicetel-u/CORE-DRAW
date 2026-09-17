@@ -34,10 +34,29 @@ export function createQuestBattleScript(result: DrawResult, participants: Partic
   }
   if (peaceful) {
     const dialogueRandom = createSeededRandom(result.drawId + 'quest-tavern-dialogue-v2')
+    const originalOrder = fighters.map(f => f.id)
+    let revealedGroupCount = 0
     for (const beat of createTavernDialogue(result, fighters, dialogueRandom)) {
+      let order = beat.order
+      let partyById: Record<string, number> | undefined
+      if (result.mode === 'grouping') {
+        const groupCall = beat.message.match(/【店員】\n「(\d+)組目は/)
+        if (groupCall) revealedGroupCount = Math.max(revealedGroupCount, Number(groupCall[1]))
+        if (beat.type === 'result') revealedGroupCount = result.groups?.length ?? revealedGroupCount
+        if (revealedGroupCount > 0) {
+          const revealedGroups = (result.groups ?? []).slice(0, revealedGroupCount)
+          const assigned = revealedGroups.flat()
+          const assignedSet = new Set(assigned)
+          const nextPartyById: Record<string, number> = {}
+          revealedGroups.forEach((group, index) => group.forEach(id => { nextPartyById[id] = index + 1 }))
+          partyById = nextPartyById
+          order = [...assigned, ...originalOrder.filter(id => !assignedSet.has(id))]
+        }
+      }
       act(beat.type, beat.phase, beat.message, beat.effectMs, {
         hostessPose: beat.pose,
-        order: beat.order,
+        order,
+        partyById,
       }, beat.holdMs)
     }
     return { boss, fighters, events, duration: t, survivorIds, peaceful }
