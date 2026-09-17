@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { resolveDraw } from './core/drawEngine'
 import { DrawAudio } from './core/audio'
 import { createCinematicState, directDraw } from './core/cinematic'
+import { canStartDraw, cycleComplete, exclusionApplies as isExclusionMode, exclusionIds, knownExcludedIds, partitionParticipants } from './core/exclusion'
 import type { DrawMode, DrawPhase, DrawResult, Participant, QualityTier } from './core/types'
 import { demoParticipants } from './data/demoParticipants'
 const DrawStage = lazy(() => import('./scene/DrawStage').then(module => ({ default: module.DrawStage })))
@@ -104,9 +105,9 @@ function initialExcludedIds() {
       return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
     }
   } catch {
-    // Fall back to legacy history migration below.
+    return []
   }
-  return Array.from(new Set(initialHistory().flatMap((entry) => entry.winnerIds)))
+  return []
 }
 
 function namesFor(ids: string[], participants: Participant[]) {
@@ -121,10 +122,6 @@ function historySummary(result: DrawResult, participants: Participant[]) {
   if (result.mode === 'grouping') return `${result.groups?.length ?? 0}パーティーに わけた`
   if (result.mode === 'ordered_list') return `じゅんばん: ${namesFor(result.orderedIds.slice(0, 3), participants).join(' → ')}${result.orderedIds.length > 3 ? ' …' : ''}`
   return `ならび: ${namesFor(result.orderedIds.slice(0, 3), participants).join(' → ')}${result.orderedIds.length > 3 ? ' …' : ''}`
-}
-
-function exclusionIds(result: DrawResult) {
-  return result.mode === 'single_winner' || result.mode === 'multi_winner' || result.mode === 'top_n_ordered' ? result.winnerIds : []
 }
 
 function ResultOverlay({ result, participants }: { result: DrawResult; participants: Participant[] }) {
@@ -176,13 +173,20 @@ export default function App() {
   const busy = phase !== 'idle' && phase !== 'complete'
   const revealed = phase === 'reveal' || phase === 'complete'
   const modeMeta = MODE_META[mode]
-  const exclusionApplies = mode === 'single_winner' || mode === 'multi_winner' || mode === 'top_n_ordered'
-  const excludedIdSet = new Set(excludedIds)
-  const excludedParticipants = participants.filter((p) => excludedIdSet.has(p.id))
-  const candidateParticipants = participants.filter((p) => !excludedIdSet.has(p.id))
-  const eligible = exclusionApplies && noDuplicates ? candidateParticipants : participants
-  const activeExcludedCount = exclusionApplies && noDuplicates ? excludedParticipants.length : 0
-  const safeWinnerCount = Math.max(1, Math.min(winnerCount, eligible.length))
+  const exclusionApplies = isExclusionMode(mode)
+  const exclusionOn = exclusionApplies && noDuplicates
+  const liveWinnerIds = revealed && result && exclusionOn ? exclusionIds(result) : []
+  const { candidates: rosterCandidates, excluded: rosterExcluded, nextPool } = partitionParticipants(
+    participants,
+    exclusionOn ? excludedIds : [],
+    liveWinnerIds,
+  )
+  const eligible = nextPool
+  const activeExcludedCount = rosterExcluded.length
+  const storedExcludedCount = knownExcludedIds(participants, excludedIds).length
+  const canDrawNow = canStartDraw(eligible.length, exclusionOn)
+  const cycleExhausted = cycleComplete(exclusionOn, storedExcludedCount, eligible.length)
+  const safeWinnerCount = Math.max(1, Math.min(winnerCount, Math.max(1, eligible.length)))
   const groupingPopulation = participants.length
   const safeGroupCount = Math.max(2, Math.min(groupCount, Math.max(2, groupingPopulation)))
   const safeGroupSize = Math.max(1, Math.min(groupSize, Math.max(1, groupingPopulation - 1)))
@@ -192,7 +196,6 @@ export default function App() {
   const largestGroupSize = Math.ceil(groupingPopulation / resolvedGroupCount)
   const groupSizeSummary = smallestGroupSize === largestGroupSize ? `${smallestGroupSize}人ずつ` : `${smallestGroupSize}〜${largestGroupSize}人`
   const orderedParticipants = result ? result.orderedIds.map((id) => participants.find((p) => p.id === id)).filter((p): p is Participant => Boolean(p)) : eligible
-  const cycleExhausted = exclusionApplies && noDuplicates && excludedParticipants.length > 0 && eligible.length < 2
 
   useEffect(() => {
     audio.current = new DrawAudio()
@@ -289,7 +292,7 @@ export default function App() {
   }
 
   function draw() {
-    if (busyRef.current || eligible.length < 2) return
+    if (busyRef.current || !canDrawNow) return
     play(resolveDraw({
       drawId: crypto.randomUUID(),
       mode,
@@ -319,9 +322,6 @@ export default function App() {
   const targetLabel = mode === 'grouping' ? 'パーティー' : mode === 'ordered_list' || mode === 'shuffle_only' ? 'なかま' : mode === 'top_n_ordered' ? '上位' : 'えらぶ人数'
   const targetValue = mode === 'single_winner' ? 1 : mode === 'multi_winner' || mode === 'top_n_ordered' ? safeWinnerCount : mode === 'grouping' ? resolvedGroupCount : eligible.length
   const targetUnit = mode === 'grouping' ? '組' : '人'
-  const rosterCandidates = noDuplicates && exclusionApplies ? candidateParticipants : participants
-  const rosterExcluded = noDuplicates && exclusionApplies ? excludedParticipants : []
-
   function rosterRow(p: Participant, index: number, excluded = false) {
     const chosen = revealed && result?.winnerIds.includes(p.id)
     return <div className={`roster-row ${chosen ? 'chosen' : ''} ${excluded ? 'excluded' : ''}`} key={p.id}>
@@ -356,24 +356,24 @@ export default function App() {
           <p className="grouping-preview">→ <b>{resolvedGroupCount}組</b> / {groupSizeSummary}{groupingBasis === 'size' && smallestGroupSize !== largestGroupSize ? '（余りは自動で均等調整）' : ''}</p>
         </section>}
 
-        <div className="roster-title"><span>{noDuplicates && exclusionApplies ? '抽選対象' : 'なかま'} <b>{eligible.length}人</b></span><button disabled={busy} onClick={() => { setDraft(participants.map((p) => p.name).join('\n')); setError(''); setPanel('participants') }}>いれかえる</button></div>
+        <div className="roster-title"><span>{exclusionOn ? '抽選対象' : 'なかま'} <b>{exclusionOn ? rosterCandidates.length : participants.length}人</b></span><button disabled={busy} onClick={() => { setDraft(participants.map((p) => p.name).join('\n')); setError(''); setPanel('participants') }}>いれかえる</button></div>
         <div className="roster">
-          {noDuplicates && exclusionApplies && <div className="roster-section-label"><span>候補</span><b>{rosterCandidates.length}</b></div>}
+          {exclusionOn && <div className="roster-section-label"><span>候補</span><b>{rosterCandidates.length}</b></div>}
           {rosterCandidates.map((p) => rosterRow(p, participants.indexOf(p)))}
           {rosterExcluded.length > 0 && <><div className="roster-section-label excluded-label"><span>除外済み</span><b>{rosterExcluded.length}</b></div>{rosterExcluded.map((p) => rosterRow(p, participants.indexOf(p), true))}</>}
         </div>
 
         <div className="side-bottom">
           <section className={`draw-rule-panel ${!exclusionApplies ? 'rule-disabled' : ''}`}>
-            <div className="draw-rule-heading"><span>抽選ルール</span>{exclusionApplies && excludedIds.length > 0 && <small>除外記録 {excludedIds.length}人</small>}</div>
+            <div className="draw-rule-heading"><span>抽選ルール</span>{exclusionOn && storedExcludedCount > 0 && <small>除外記録 {storedExcludedCount}人</small>}</div>
             {exclusionApplies ? <>
               <div className="rule-options" role="group" aria-label="抽選ルール">
                 <button className={!noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(false)}>毎回抽選</button>
                 <button className={noDuplicates ? 'active' : ''} disabled={busy} onClick={() => setNoDuplicates(true)}>当選者除外</button>
               </div>
-              <div className="rule-stats"><span>候補 <b>{eligible.length}</b>人</span><span>除外 <b>{activeExcludedCount}</b>人</span></div>
+              <div className="rule-stats"><span>候補 <b>{rosterCandidates.length}</b>人</span><span>除外 <b>{activeExcludedCount}</b>人</span></div>
               <p>{noDuplicates ? '当選した人は、この周回では次から外れます。' : '毎回、全員を候補にして抽選します。'}</p>
-              <button className="reset-exclusions" disabled={busy || excludedIds.length === 0} onClick={resetExclusions}>↻ 除外をリセット</button>
+              <button className="reset-exclusions" disabled={busy || storedExcludedCount === 0} onClick={resetExclusions}>↻ 除外をリセット</button>
             </> : <p className="rule-note">このモードは全員参加なので、当選者の除外設定は使いません。</p>}
           </section>
 
@@ -384,10 +384,10 @@ export default function App() {
       <section className="stage-shell" aria-label="抽選ステージ">
         {theme === 'core' && <div className="stage-grid" />}
         {theme !== 'quest_raid' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
-        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={eligible} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
-          <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && eligible.length < 2}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
-          {revealed && result && !cycleExhausted && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
-          {eligible.length < 2 && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
+        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
+          <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
+          {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
+          {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
         </div> : null} /> : <><div className="scene"><Suspense fallback={null}><DrawStage participants={orderedParticipants} winnerIds={result?.winnerIds ?? []} groups={result?.groups} mode={mode} quality={quality} cinematic={cinematic.current} revealed={revealed} /></Suspense></div>
         <div className="scene-vignette" />
 
@@ -400,15 +400,15 @@ export default function App() {
           exclusionActive={noDuplicates && exclusionApplies}
         />
 
-        <div className="stage-intro"><div className="eyebrow">ぼうけんの くじびき</div><h1>{cycleExhausted ? 'この周回は おしまい！' : revealed ? revealHeadlines[mode] : 'さあ くじを ひこう！'}</h1><p>{cycleExhausted ? '除外をリセットすると 全員が候補に戻ります。' : labels[phase]}</p></div>
-        <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{cycleExhausted ? 'つぎの周回へ' : revealed ? 'けっかが でた！' : 'いつでも ひける！'}</>}</div>
+        <div className="stage-intro"><div className="eyebrow">ぼうけんの くじびき</div><h1>{revealed ? revealHeadlines[mode] : cycleExhausted ? 'この周回は おしまい！' : 'さあ くじを ひこう！'}</h1><p>{revealed ? labels[phase] : cycleExhausted ? '除外をリセットすると 全員が候補に戻ります。' : labels[phase]}</p></div>
+        <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{revealed ? 'けっかが でた！' : cycleExhausted ? 'つぎの周回へ' : 'いつでも ひける！'}</>}</div>
         {revealed && result && <ResultOverlay result={result} participants={participants} />}
         </>}
         {theme !== 'quest_raid' && <div className="stage-bottom">
-          <div className="draw-meta"><span>候補</span><strong>{eligible.length}<small>{noDuplicates && exclusionApplies ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
+          <div className="draw-meta"><span>候補</span><strong>{rosterCandidates.length}<small>{exclusionOn ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
           <div className="launch-area">
-            <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={busy || (!cycleExhausted && eligible.length < 2)}><span>▶</span>{busy ? 'くじびき中…' : cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
-            <div className="launch-hint">{busy ? 'ちからを あつめています…' : cycleExhausted ? '除外をリセットして 全員を候補に戻します。' : eligible.length < 2 ? '候補が 2人以上 必要です。' : revealed ? <button className="replay" onClick={() => result && play(result, true)}>▶ おなじけっかを もういちど</button> : noDuplicates && exclusionApplies ? '当選者除外：当選した人は次回から外れます。' : modeMeta.description}</div>
+            <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={busy || (!cycleExhausted && !canDrawNow)}><span>▶</span>{busy ? 'くじびき中…' : cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
+            <div className="launch-hint">{busy ? 'ちからを あつめています…' : cycleExhausted ? '除外をリセットして 全員を候補に戻します。' : !canDrawNow ? '候補が 2人以上 必要です。' : revealed ? <button className="replay" onClick={() => result && play(result, true)}>▶ おなじけっかを もういちど</button> : exclusionOn ? '当選者除外：当選した人は次回から外れます。' : modeMeta.description}</div>
           </div>
           <div className="draw-meta align-right"><span>{targetLabel}</span><strong>{targetValue}<small> {targetUnit}</small></strong></div>
         </div>}

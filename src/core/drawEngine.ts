@@ -29,7 +29,9 @@ function shuffled<T>(items: T[], seed: string) {
 }
 
 export function resolveDraw(request: DrawRequest): DrawResult {
-  if (request.participants.length < 2 || request.participants.length > 50) {
+  const count = request.participants.length
+  const lastRemaining = count === 1 && (request.mode === 'single_winner' || request.mode === 'multi_winner' || request.mode === 'top_n_ordered')
+  if (count < 1 || count > 50 || !lastRemaining && count < 2) {
     throw new Error('CORE-DRAW supports 2 to 50 participants.')
   }
 
