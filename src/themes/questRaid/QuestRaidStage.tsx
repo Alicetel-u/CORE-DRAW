@@ -201,6 +201,7 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
   const density = densityFor(fighters.length)
   const tavernMode = Boolean(script?.peaceful && (result?.mode === 'grouping' || result?.mode === 'shuffle_only'))
   const hostessPose = event.hostessPose ?? 'idle'
+  const groupSizes = result?.mode === 'grouping' ? result.groups?.map(group => group.length) : undefined
 
   return <div className={`qr-stage qr-density-${density} ${reduced ? 'qr-reduced' : ''} ${shake ? 'qr-shake' : ''}`}>
     <QuestRaidRoster
@@ -209,6 +210,7 @@ export function QuestRaidStage({ script, frame, participants, reduced, result, r
       actorId={highlight ? event.actorId : undefined}
       targetIds={highlight ? event.targetIds : undefined}
       reduced={reduced}
+      groupSizes={groupSizes}
     />
     <div className="qr-main">
       <QuestRaidBossHp
