@@ -18,7 +18,13 @@ export function playQuestRaidBattle(script: QuestBattleScript, audio: QuestRaidA
       fighters = fighters.map(f => {
         const hp = event.hp?.[f.id] ?? f.hp, mp = event.mp?.[f.id] ?? f.mp
         if (hpState(hp, f.maxHp) === 'critical' && hpState(f.hp, f.maxHp) !== 'critical') criticalIds.push(f.id)
-        return { ...f, hp, mp, party: event.partyById?.[f.id] ?? f.party }
+        return {
+          ...f,
+          hp,
+          mp,
+          party: event.partyById?.[f.id] ?? f.party,
+          rank: event.rankById?.[f.id] ?? f.rank,
+        }
       })
       if (event.order) { const byId = new Map(fighters.map(f => [f.id, f])); fighters = event.order.map(id => byId.get(id)!) }
       bossHp = event.bossHp ?? bossHp
