@@ -6,21 +6,21 @@ function densityFor(count: number) {
   return count <= 8 ? 'few' : count <= 18 ? 'pack' : count <= 32 ? 'crowd' : 'mass'
 }
 
-const PARTY_PALETTES = [
-  { accent: '#ffe66f', tint: 'rgba(255,230,111,.18)' },
-  { accent: '#7dff92', tint: 'rgba(125,255,146,.18)' },
-  { accent: '#7ed7ff', tint: 'rgba(126,215,255,.18)' },
-  { accent: '#ff9fe5', tint: 'rgba(255,159,229,.18)' },
-  { accent: '#ffae6f', tint: 'rgba(255,174,111,.18)' },
-  { accent: '#c7a3ff', tint: 'rgba(199,163,255,.18)' },
-  { accent: '#76f0df', tint: 'rgba(118,240,223,.18)' },
-  { accent: '#ff8f9f', tint: 'rgba(255,143,159,.18)' },
+const PARTY_ACCENTS = [
+  '#d8bd72',
+  '#78a88d',
+  '#759bb3',
+  '#a887a0',
+  '#b68d70',
+  '#9286ad',
+  '#719d99',
+  '#ae7e84',
 ]
 
 const RANK_GOLD = '#ffd65a'
 
-function paletteFor(party: number) {
-  return PARTY_PALETTES[(party - 1) % PARTY_PALETTES.length]
+function accentFor(party: number) {
+  return PARTY_ACCENTS[(party - 1) % PARTY_ACCENTS.length]
 }
 
 function Status({ fighter, critical, acting, targeted, compact, reduced, insidePartyBlock = false }: {
@@ -40,7 +40,7 @@ function Status({ fighter, critical, acting, targeted, compact, reduced, insideP
   }, [fighter.hp, reduced])
   const state = hpState(fighter.hp, fighter.maxHp)
   const ratio = fighter.maxHp <= 0 ? 0 : Math.max(0, Math.min(1, hp / fighter.maxHp))
-  const partyAccent = fighter.party ? paletteFor(fighter.party).accent : undefined
+  const partyAccent = fighter.party ? accentFor(fighter.party) : undefined
   const decorated = Boolean(fighter.rank || (fighter.party && !insidePartyBlock))
   const accent = fighter.rank ? RANK_GOLD : partyAccent
   return <div
@@ -54,7 +54,7 @@ function Status({ fighter, critical, acting, targeted, compact, reduced, insideP
     } : {
       position: 'relative',
       borderColor: accent,
-      boxShadow: `inset 0 0 0 1px ${accent}55, 0 1px 0 #010b35`,
+      boxShadow: `inset 0 0 0 1px ${accent}44, 0 1px 0 #010b35`,
     } : undefined}
   >
     {fighter.rank && <span aria-label={`${fighter.rank}番`} style={{
@@ -168,7 +168,7 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
     }}>
       {partyNumbers.map(party => {
         const members = fighters.filter(f => f.party === party)
-        const palette = paletteFor(party)
+        const accent = accentFor(party)
         const memberColumns = members.length <= 2 ? members.length : members.length <= 6 ? 3 : members.length <= 12 ? 4 : 5
         return <section key={party} aria-label={`パーティ${party}`} style={{
           minWidth: 0,
@@ -176,10 +176,11 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
           display: 'grid',
           gridTemplateRows: 'auto minmax(0, 1fr)',
           padding: 5,
-          border: `3px double ${palette.accent}`,
-          borderRadius: 5,
-          background: `linear-gradient(180deg, ${palette.tint}, rgba(2,16,67,.9) 58%)`,
-          boxShadow: `inset 0 0 0 1px ${palette.accent}33, 0 0 10px ${palette.accent}22`,
+          border: '1px solid rgba(194,210,242,.28)',
+          borderLeft: `5px solid ${accent}`,
+          borderRadius: 4,
+          background: 'linear-gradient(180deg, rgba(6,28,88,.96), rgba(2,16,67,.96))',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,.035)',
           overflow: 'hidden',
         }}>
           <div style={{
@@ -190,22 +191,31 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
             minHeight: compact ? 20 : 24,
             margin: '-1px -1px 5px',
             padding: compact ? '3px 7px' : '4px 8px',
-            borderBottom: `2px solid ${palette.accent}`,
-            background: `linear-gradient(90deg, ${palette.tint}, rgba(3,22,83,.22))`,
-            color: palette.accent,
+            borderBottom: '1px solid rgba(194,210,242,.16)',
+            background: 'rgba(255,255,255,.018)',
+            color: '#f3f6ff',
             textShadow: '1px 1px 0 #00103f',
           }}>
-            <strong style={{
-              fontSize: compact ? 13 : 16,
-              lineHeight: 1,
-              fontWeight: 950,
-              letterSpacing: '.04em',
-            }}>パーティ{party}</strong>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <i aria-hidden="true" style={{
+                width: compact ? 7 : 8,
+                height: compact ? 7 : 8,
+                flex: '0 0 auto',
+                borderRadius: 2,
+                background: accent,
+              }} />
+              <strong style={{
+                fontSize: compact ? 13 : 16,
+                lineHeight: 1,
+                fontWeight: 950,
+                letterSpacing: '.04em',
+              }}>パーティ{party}</strong>
+            </span>
             <span style={{
               fontSize: compact ? 10 : 12,
               lineHeight: 1,
-              fontWeight: 800,
-              color: '#fff',
+              fontWeight: 700,
+              color: '#b9c6e3',
             }}>{members.length}人</span>
           </div>
           <div style={{
@@ -235,16 +245,16 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
         display: 'grid',
         gridTemplateRows: 'auto minmax(0, 1fr)',
         padding: 5,
-        border: '2px dashed rgba(220,232,255,.45)',
-        borderRadius: 5,
-        background: 'rgba(2,16,67,.42)',
+        border: '1px dashed rgba(194,210,242,.3)',
+        borderRadius: 4,
+        background: 'rgba(2,16,67,.5)',
         overflow: 'hidden',
       }}>
         <div style={{
           marginBottom: 4,
-          color: '#b8c9ef',
+          color: '#9eaccd',
           fontSize: compact ? 10 : 12,
-          fontWeight: 800,
+          fontWeight: 700,
           lineHeight: 1.05,
         }}>振り分け待ち</div>
         <div style={{
