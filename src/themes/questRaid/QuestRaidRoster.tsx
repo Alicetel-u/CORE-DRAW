@@ -106,16 +106,27 @@ function FighterStatus({ fighter, criticalIds, actorId, targets, compact, reduce
   />
 }
 
-function PartyBox({ party, expectedSize, members }: {
+function groupingType(partyCount: number) {
+  if (partyCount <= 2) return { header: 20, count: 13, name: 18, gap: 7, pad: 9 }
+  if (partyCount <= 4) return { header: 17, count: 12, name: 16, gap: 5, pad: 7 }
+  if (partyCount <= 6) return { header: 15, count: 11, name: 14, gap: 4, pad: 6 }
+  if (partyCount <= 12) return { header: 13, count: 10, name: 12, gap: 3, pad: 5 }
+  return { header: 12, count: 9, name: 10, gap: 2, pad: 4 }
+}
+
+function PartyBox({ party, expectedSize, members, partyCount }: {
   party: number
   expectedSize: number
   members: Fighter[]
+  partyCount: number
 }) {
-  const accent = accentFor(party)
   const slots = Array.from({ length: expectedSize }, (_, index) => members[index]?.name ?? '')
-  const nameColumns = expectedSize <= 7 ? 1 : expectedSize <= 14 ? 2 : 3
+  const type = groupingType(partyCount)
+  const nameColumns = expectedSize <= 6 ? 1 : expectedSize <= 14 ? 2 : expectedSize <= 27 ? 3 : expectedSize <= 40 ? 4 : 5
   const nameRows = Math.max(1, Math.ceil(expectedSize / nameColumns))
-  const nameFontSize = expectedSize <= 5 ? 13 : expectedSize <= 10 ? 11 : 10
+  const densityPenalty = Math.max(0, Math.ceil((nameRows - 6) / 2))
+  const nameFontSize = Math.max(8, type.name - densityPenalty)
+  const headerHeight = partyCount <= 2 ? 42 : partyCount <= 4 ? 36 : partyCount <= 6 ? 32 : 28
 
   return <section aria-label={`パーティ${party}`} style={{
     minWidth: 0,
@@ -124,63 +135,80 @@ function PartyBox({ party, expectedSize, members }: {
     height: '100%',
     boxSizing: 'border-box',
     display: 'grid',
-    gridTemplateRows: '28px minmax(0, 1fr)',
-    border: '2px solid rgba(230,237,255,.78)',
-    borderTopColor: accent,
-    borderRadius: 4,
-    background: '#061b59',
+    gridTemplateRows: `${headerHeight}px minmax(0, 1fr)`,
+    border: partyCount <= 6 ? '4px double #fff' : '3px double #fff',
+    borderRadius: 2,
+    background: '#03154f',
     overflow: 'hidden',
-    boxShadow: '0 2px 0 #010b35',
+    boxShadow: '0 3px 0 #01082b, inset 0 0 0 1px #3959a8',
+    fontFamily: "'DotGothic16', sans-serif",
   }}>
     <header style={{
       minWidth: 0,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 5,
-      padding: '0 6px',
-      borderBottom: '1px solid rgba(230,237,255,.24)',
-      background: '#08236d',
-      color: '#fff',
+      gap: 6,
+      padding: `0 ${Math.max(5, type.pad)}px`,
+      borderBottom: partyCount <= 6 ? '2px solid #fff' : '1px solid #fff',
+      background: '#061d66',
       lineHeight: 1,
       overflow: 'hidden',
     }}>
-      <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 950 }}>パーティ{party}</strong>
-      <span style={{ flex: '0 0 auto', fontSize: 9, color: '#b9c6e3' }}>{members.length}/{expectedSize}</span>
+      <strong style={{
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontSize: type.header,
+        fontWeight: 900,
+        letterSpacing: '.04em',
+        color: '#ffe66f',
+        textShadow: '2px 2px 0 #00103f',
+      }}>パーティ {party}</strong>
+      <span style={{
+        flex: '0 0 auto',
+        fontSize: type.count,
+        color: '#fff',
+        fontVariantNumeric: 'tabular-nums',
+      }}>{members.length}/{expectedSize}</span>
     </header>
     <div style={{
       minWidth: 0,
       minHeight: 0,
-      padding: '4px 5px',
+      padding: type.pad,
       display: 'grid',
       gridTemplateColumns: `repeat(${nameColumns}, minmax(0, 1fr))`,
       gridTemplateRows: `repeat(${nameRows}, minmax(0, 1fr))`,
-      gap: 2,
+      gap: type.gap,
       overflow: 'hidden',
+      alignItems: 'center',
     }}>
       {slots.map((name, index) => <div key={index} style={{
         minWidth: 0,
         minHeight: 0,
         display: 'flex',
         alignItems: 'center',
-        gap: 4,
+        gap: partyCount <= 6 ? 6 : 4,
         color: name ? '#fff' : '#52658f',
         fontSize: nameFontSize,
-        lineHeight: 1,
+        fontWeight: name ? 700 : 400,
+        lineHeight: 1.08,
+        textShadow: name ? '1px 1px 0 #00103f' : 'none',
         overflow: 'hidden',
       }}>
         <span aria-hidden="true" style={{
-          width: 4,
-          height: 4,
           flex: '0 0 auto',
-          background: name ? accent : '#33466f',
-        }} />
+          color: name ? '#ffe66f' : '#40517a',
+          fontSize: Math.max(8, nameFontSize - 1),
+          lineHeight: 1,
+        }}>{name ? '▶' : '・'}</span>
         <span style={{
           minWidth: 0,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-        }}>{name || '────'}</span>
+        }}>{name || '・・・・・・'}</span>
       </div>)}
     </div>
   </section>
@@ -241,8 +269,9 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
   if (grouping) {
     const assignedCount = fighters.filter(f => f.party).length
     const partyCount = partyNumbers.length
-    const partyColumns = partyCount <= 2 ? 1 : partyCount <= 6 ? 2 : partyCount <= 12 ? 3 : 4
+    const partyColumns = partyCount === 1 ? 1 : partyCount <= 4 ? 2 : partyCount <= 9 ? 3 : partyCount <= 16 ? 4 : 5
     const partyRows = Math.max(1, Math.ceil(partyCount / partyColumns))
+    const type = groupingType(partyCount)
 
     return <section className={`qr-roster qr-density-${density}`} aria-label="パーティー編成" style={{ overflow: 'hidden' }}>
       <div style={{
@@ -251,8 +280,8 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
         minWidth: 0,
         minHeight: 0,
         display: 'grid',
-        gridTemplateRows: '28px minmax(0, 1fr)',
-        gap: 6,
+        gridTemplateRows: `${partyCount <= 4 ? 34 : 28}px minmax(0, 1fr)`,
+        gap: partyCount <= 4 ? 8 : 5,
         overflow: 'hidden',
       }}>
         <div style={{
@@ -260,13 +289,14 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 4px',
-          color: '#dfe7fb',
-          fontSize: 12,
+          color: '#fff',
+          fontSize: partyCount <= 4 ? 16 : 12,
           fontWeight: 800,
           lineHeight: 1,
+          textShadow: '1px 1px 0 #00103f',
         }}>
-          <span>パーティ編成</span>
-          <span style={{ color: '#98a8cc', fontWeight: 700 }}>決定 {assignedCount}/{fighters.length}</span>
+          <span style={{ color: '#ffe66f' }}>パーティ編成</span>
+          <span>決定 {assignedCount}/{fighters.length}</span>
         </div>
         <div style={{
           minWidth: 0,
@@ -274,7 +304,7 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
           display: 'grid',
           gridTemplateColumns: `repeat(${partyColumns}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${partyRows}, minmax(0, 1fr))`,
-          gap: 6,
+          gap: type.gap + 2,
           overflow: 'hidden',
           padding: 2,
         }}>
@@ -283,6 +313,7 @@ export function QuestRaidRoster({ fighters, criticalIds, actorId, targetIds, red
             party={party}
             expectedSize={Math.max(1, groupSizes![party - 1])}
             members={fighters.filter(f => f.party === party)}
+            partyCount={partyCount}
           />)}
         </div>
       </div>
