@@ -46,6 +46,7 @@ export type QuestBattleEvent = {
   type: QuestEventType; phase: QuestPhase; at: number; duration: number; message: string
   actorId?: string; targetIds?: string[]; damage?: number; critical?: boolean
   attackId?: string; effect?: QuestEffect; pose?: 'idle' | 'attack' | 'special'
+  hostessPose?: 'idle' | 'point' | 'cheer'
   hp?: Record<string, number>; mp?: Record<string, number>; bossHp?: number; order?: string[]
   fx?: number
 }
