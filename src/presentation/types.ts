@@ -1,1 +1,1 @@
-export type PresentationTheme = 'core' | 'quest_raid'
+export type PresentationTheme = 'core' | 'quest_raid' | 'bingo'

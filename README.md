@@ -132,3 +132,12 @@ See [`ASTRA.md`](./ASTRA.md) before major implementation work.
 - 効果音と「演出をひかえめに」は既存の設定で操作できます。
 - バージョンは `package.json` を唯一の値として `src/version.ts` から表示します。
 - 戦闘の検証: `node scripts/verify-quest-raid.mjs`（Node.js 24以上）
+
+
+## Bingo presentation
+
+Select **BINGO / ビンゴ** in the presentation picker. This is a 75-ball caller for physical cards supplied by the host; participant registration is unnecessary. It provides manual draws, automatic draws with 5/7/10/15-second reading intervals, a complete called-number board, ordered history, sound, reduced motion, and a host-triggered celebration that pauses automatic drawing. The host verifies bingo claims against the board.
+
+All 75 numbers are shuffled before the first reveal using cryptographic randomness and unbiased Fisher–Yates choices. Each number appears once. Stopping automatic mode lets an in-progress ball finish. A new game requires an inline reset confirmation; reloading or switching presentations also clears the game. Existing gacha and raid results are separate.
+
+Validation: `node verify-bingo.mjs` and `npm run build`.

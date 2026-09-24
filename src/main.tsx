@@ -9,6 +9,7 @@ import './stage-result-hud.css'
 import './grouping-config.css'
 import './result-message-fix.css'
 import './themes/questRaid/questRaid.css'
+import './themes/bingo/bingo.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

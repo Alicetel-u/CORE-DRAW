@@ -11,6 +11,7 @@ import { ParticipantStatusRails } from './components/ParticipantStatusRails'
 import { APP_VERSION } from './version'
 import type { PresentationTheme } from './presentation/types'
 import { initialTheme, PRESENTATION_THEMES } from './presentation/registry'
+import { BingoStage } from './themes/bingo/BingoStage'
 import { QuestRaidStage } from './themes/questRaid/QuestRaidStage'
 import { QuestRaidAudio } from './themes/questRaid/QuestRaidAudio'
 import { createQuestBattleScript, type QuestBattleScript } from './themes/questRaid/questRaidBattle'
@@ -331,7 +332,7 @@ export default function App() {
     </div>
   }
 
-  return <main className={`app-shell phase-${phase} mode-${mode} ${theme === 'quest_raid' ? 'qr-shell' : ''} ${reduced ? 'reduced' : ''}`}>
+  return <main className={`app-shell phase-${phase} mode-${mode} ${theme === 'quest_raid' ? 'qr-shell' : theme === 'bingo' ? 'bingo-shell' : ''} ${reduced ? 'reduced' : ''}`}>
     <span className="app-version">{APP_VERSION}</span>
     <header className="topbar">
       <a className="brand" href="./"><span className="brand-symbol">◆</span> CORE <span className="brand-light">DRAW</span><span className="edition">くじびきの間 · {APP_VERSION}</span></a>
@@ -344,7 +345,7 @@ export default function App() {
         <div className="room-heading"><h2>くじびきの間</h2><p>だれが えらばれる？</p></div>
 
         <label className="theme-picker">演出<select aria-label="演出テーマ" disabled={busy} value={theme} onChange={(e) => { if (busyRef.current) return; resetPresentation(); setTheme(e.target.value as PresentationTheme) }}>{PRESENTATION_THEMES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-        <button className="mode-card mode-selector" disabled={busy} onClick={() => setPanel('modes')}><span className="mode-icon">{modeMeta.icon}</span><div><strong>{modeMeta.label}</strong><span>{modeMeta.description}</span></div><span className="mode-check">えらぶ</span></button>
+        {theme === 'bingo' ? <div className="bingo-sidebar-info"><span>75 BALL BINGO</span><h2>カードを手に、<br />幸運を待とう。</h2><p>お手元のカードで参加できます。<br />参加者の登録は不要です。</p><ol><li>中央のFREEを開ける</li><li>出た番号をマークする</li><li>縦・横・斜めの1列でビンゴ！</li></ol><p>司会の方へ<br />ビンゴの申告があったら抽選を停止し、番号を確認して「お祝いする」を押してください。</p></div> : <><button className="mode-card mode-selector" disabled={busy} onClick={() => setPanel('modes')}><span className="mode-icon">{modeMeta.icon}</span><div><strong>{modeMeta.label}</strong><span>{modeMeta.description}</span></div><span className="mode-check">えらぶ</span></button>
         {(mode === 'multi_winner' || mode === 'top_n_ordered') && <label className="mode-config"><span>{mode === 'top_n_ordered' ? '上位 何人？' : '何人 えらぶ？'}</span><input type="number" min={1} max={Math.max(1, eligible.length)} value={safeWinnerCount} disabled={busy} onChange={(e) => setWinnerCount(Number(e.target.value) || 1)} /></label>}
         {mode === 'grouping' && <section className="grouping-config" aria-label="パーティーの分け方">
           <div className="grouping-config-title"><span>分け方</span><span>{participants.length}人</span></div>
@@ -379,12 +380,13 @@ export default function App() {
 
           <button className="history-button" disabled={busy} onClick={() => setPanel('history')}><span>これまでの結果</span><span>{history.length}件</span></button>
         </div>
+        </>}
       </aside>
 
       <section className="stage-shell" aria-label="抽選ステージ">
         {theme === 'core' && <div className="stage-grid" />}
-        {theme !== 'quest_raid' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
-        {theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
+        {theme === 'core' && <div className="stage-header"><span><i /> くじびきの間</span><button className="stage-mode-button" disabled={busy} onClick={() => setPanel('modes')}>{modeMeta.label} ▶</button></div>}
+        {theme === 'bingo' ? <BingoStage reduced={reduced} sound={sound} onBusy={value => { busyRef.current = value; setPhase(value ? 'mixing' : 'idle') }} /> : theme === 'quest_raid' ? <QuestRaidStage script={questScript} frame={questFrame} participants={rosterCandidates} reduced={reduced} result={result} revealed={revealed} action={!busy ? <div className="qr-center-actions">
           <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={!cycleExhausted && !canDrawNow}><span>▶</span>{cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
           {revealed && result && <button className="replay" onClick={() => play(result, true)}>▶ おなじけっかを もういちど</button>}
           {!canDrawNow && !cycleExhausted && <p className="qr-center-actions-note">候補が 2人以上 必要です。</p>}
@@ -404,7 +406,7 @@ export default function App() {
         <div className="phase-readout" aria-live="polite">{busy ? <><span className="pulse-dot" />{labels[phase]}<span className="readout-line" /></> : <><span className="diamond">◆</span>{revealed ? 'けっかが でた！' : cycleExhausted ? 'つぎの周回へ' : 'いつでも ひける！'}</>}</div>
         {revealed && result && <ResultOverlay result={result} participants={participants} />}
         </>}
-        {theme !== 'quest_raid' && <div className="stage-bottom">
+        {theme === 'core' && <div className="stage-bottom">
           <div className="draw-meta"><span>候補</span><strong>{rosterCandidates.length}<small>{exclusionOn ? ` / 除外 ${activeExcludedCount}` : ' 人'}</small></strong></div>
           <div className="launch-area">
             <button ref={startButton} className={`launch ${cycleExhausted ? 'cycle-reset-launch' : ''}`} onClick={cycleExhausted ? resetExclusions : draw} disabled={busy || (!cycleExhausted && !canDrawNow)}><span>▶</span>{busy ? 'くじびき中…' : cycleExhausted ? '次の周回を始める' : revealed ? 'もういちど ひく' : 'くじを ひく'}<span>▶</span></button>
@@ -412,7 +414,7 @@ export default function App() {
           </div>
           <div className="draw-meta align-right"><span>{targetLabel}</span><strong>{targetValue}<small> {targetUnit}</small></strong></div>
         </div>}
-        {theme !== 'quest_raid' && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
+        {theme === 'core' && <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>}
       </section>
     </div>
 
